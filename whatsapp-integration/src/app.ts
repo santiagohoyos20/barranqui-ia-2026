@@ -1,4 +1,5 @@
 import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
 import logger from './utils/logger';
 import { config, validateConfig } from './config/env';
 import webhookRoutes from './routes/webhook.routes';
@@ -11,6 +12,7 @@ const app: Express = express();
 validateConfig();
 
 // Middleware
+app.use(cors());
 app.use(express.json());
 
 // Logging de solicitudes
