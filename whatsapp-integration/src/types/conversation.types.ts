@@ -7,6 +7,8 @@ export interface ConversationMessage {
     fileId?: string;
     mimeType?: string;
     filename?: string;
+    confidence?: number;
+    nextActions?: string[];
   };
 }
 

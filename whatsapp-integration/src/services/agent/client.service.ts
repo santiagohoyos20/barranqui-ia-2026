@@ -1,26 +1,19 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import Anthropic from '@anthropic-ai/sdk';
 import logger from '../../utils/logger';
-import { AgentRequest, AgentResponse, AgentError } from '../../types/agent.types';
+import { AgentRequest, AgentResponse } from '../../types/agent.types';
+import { ConversationMessage } from '../../types/conversation.types';
 import { config } from '../../config/env';
 
 class AgentClient {
-  private client: AxiosInstance;
+  private client: Anthropic;
 
   constructor() {
-    this.client = axios.create({
-      baseURL: config.agent.apiUrl,
+    this.client = new Anthropic({
+      apiKey: config.agent.apiKey,
       timeout: config.agent.timeout,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(config.agent.apiKey && { Authorization: `Bearer ${config.agent.apiKey}` }),
-      },
     });
   }
 
-  /**
-   * Envía un mensaje al agente IA
-   * Implementa reintentos exponenciales en caso de fallo
-   */
   async sendMessage(request: AgentRequest): Promise<AgentResponse> {
     let lastError: Error | null = null;
 
@@ -31,22 +24,41 @@ class AgentClient {
           messageLength: request.currentMessage.length,
         });
 
-        const response = await this.client.post<AgentResponse>('/chat', request);
+        const messages = this.buildMessages(request.conversationHistory, request.currentMessage);
+
+        const stream = this.client.messages.stream({
+          model: config.agent.model,
+          max_tokens: 1024,
+          system: this.buildSystemPrompt(request),
+          messages,
+        });
+
+        const message = await stream.finalMessage();
+        const textBlock = message.content.find(b => b.type === 'text');
+        const responseText = textBlock ? (textBlock as Anthropic.TextBlock).text : '';
 
         logger.info('Respuesta recibida del agente', {
           userId: request.userId,
-          confidence: response.data.confidence,
+          inputTokens: message.usage.input_tokens,
+          outputTokens: message.usage.output_tokens,
         });
 
-        return response.data;
+        return {
+          response: responseText,
+          confidence: 1,
+          metadata: {
+            model: message.model,
+            usage: message.usage,
+            stopReason: message.stop_reason,
+          },
+        };
       } catch (error) {
         lastError = error as Error;
         logger.warn(`Error en intento ${attempt}`, {
           userId: request.userId,
-          error: (error as AxiosError)?.message || error,
+          error: (error as Error)?.message || error,
         });
 
-        // Si no es el último intento, espera antes de reintentar
         if (attempt < config.agent.retries) {
           const delay = config.agent.retryDelay * Math.pow(2, attempt - 1);
           logger.debug(`Esperando ${delay}ms antes de reintentar...`);
@@ -55,48 +67,65 @@ class AgentClient {
       }
     }
 
-    // Si llegamos aquí, todos los reintentos fallaron
     throw new Error(
-      `No se pudo conectar al agente después de ${config.agent.retries} intentos: ${lastError?.message}`
+      `No se pudo obtener respuesta del agente después de ${config.agent.retries} intentos: ${lastError?.message}`
     );
   }
 
-  /**
-   * Prueba la conexión con el agente
-   */
   async healthCheck(): Promise<boolean> {
     try {
       logger.debug('Realizando health check al agente...');
-      await this.client.get('/health');
+      await this.client.models.retrieve(config.agent.model);
       logger.info('Agente disponible ✓');
       return true;
     } catch (error) {
       logger.error('Agente no disponible ✗', {
-        error: (error as AxiosError)?.message || error,
+        error: (error as Error)?.message || error,
       });
       return false;
     }
   }
 
-  /**
-   * Obtiene información del agente
-   */
   async getInfo(): Promise<Record<string, any>> {
     try {
       logger.debug('Obteniendo información del agente...');
-      const response = await this.client.get('/info');
-      return response.data;
+      const model = await this.client.models.retrieve(config.agent.model);
+      return {
+        model: model.id,
+        displayName: model.display_name,
+        createdAt: model.created_at,
+      };
     } catch (error) {
       logger.error('Error obteniendo info del agente', {
-        error: (error as AxiosError)?.message || error,
+        error: (error as Error)?.message || error,
       });
       throw error;
     }
   }
 
-  /**
-   * Función auxiliar para dormir
-   */
+  private buildMessages(
+    history: ConversationMessage[],
+    currentMessage: string
+  ): Anthropic.MessageParam[] {
+    const messages: Anthropic.MessageParam[] = history.map(msg => ({
+      role: msg.role === 'agent' ? 'assistant' : 'user',
+      content: msg.content,
+    }));
+
+    messages.push({ role: 'user', content: currentMessage });
+    return messages;
+  }
+
+  private buildSystemPrompt(request: AgentRequest): string {
+    let prompt = config.agent.systemPrompt;
+
+    if (request.metadata?.name) {
+      prompt += `\n\nEstás hablando con ${request.metadata.name}.`;
+    }
+
+    return prompt;
+  }
+
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }

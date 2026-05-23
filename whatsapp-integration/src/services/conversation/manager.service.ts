@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
-import logger from '../utils/logger';
-import { UserSession, ConversationMessage, ConversationContext } from '../types/conversation.types';
-import { config } from '../config/env';
+import logger from '../../utils/logger';
+import { UserSession, ConversationMessage, ConversationContext } from '../../types/conversation.types';
+import { config } from '../../config/env';
 
 class ConversationManager {
   private conversationStorage: Map<string, UserSession> = new Map();

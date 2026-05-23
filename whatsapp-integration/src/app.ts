@@ -29,6 +29,27 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
+// Ruta de prueba del agente
+app.post('/agent/chat', async (req: Request, res: Response) => {
+  try {
+    const { message, userId = 'test-user', name } = req.body;
+    if (!message) {
+      res.status(400).json({ error: 'Campo "message" requerido' });
+      return;
+    }
+    const agentClient = (await import('./services/agent/client.service')).default;
+    const response = await agentClient.sendMessage({
+      userId,
+      currentMessage: message,
+      conversationHistory: [],
+      metadata: { name },
+    });
+    res.json(response);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // Rutas de webhooks
 app.use('/webhook', webhookRoutes);
 

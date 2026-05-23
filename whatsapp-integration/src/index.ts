@@ -8,7 +8,7 @@ const server = app.listen(PORT, () => {
   logger.info(`🚀 Servidor iniciado en puerto ${PORT}`);
   logger.info(`📍 Ambiente: ${config.nodeEnv}`);
   logger.info(`📝 Nivel de log: ${config.logLevel}`);
-  logger.info(`🤖 Agente IA URL: ${config.agent.apiUrl}`);
+  logger.info(`🤖 Agente IA: ${config.agent.model}`);
   logger.info('✅ Sistema listo para recibir mensajes de WhatsApp');
 });
 
