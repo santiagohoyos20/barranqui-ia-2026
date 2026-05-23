@@ -23,13 +23,14 @@ export const config = {
     apiBaseUrl: 'https://api.telegram.org',
   },
 
-  // Agent
+  // Agent (Anthropic Claude)
   agent: {
-    apiUrl: process.env.AGENT_API_URL || 'http://localhost:3001',
-    apiKey: process.env.AGENT_API_KEY || '',
-    timeout: 30000, // 30 segundos
+    apiKey: process.env.ANTHROPIC_API_KEY || '',
+    model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
+    timeout: 30000,
     retries: 3,
-    retryDelay: 1000, // 1 segundo
+    retryDelay: 1000,
+    systemPrompt: process.env.AGENT_SYSTEM_PROMPT || 'Eres un asistente de Serfinanza, una entidad financiera colombiana. Responde de forma clara, amigable y profesional en español.',
   },
 
   // Conversation
