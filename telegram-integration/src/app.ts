@@ -11,6 +11,7 @@ const app: Express = express();
 validateConfig();
 
 // Middleware
+app.use(cors());
 app.use(express.json());
 
 // Logging de solicitudes
