@@ -29,7 +29,10 @@ class MessageOrchestrator {
       const messageContent = this.extractMessageContent(message);
       logger.debug('Contenido extraído', { userId, contentLength: messageContent.length });
 
-      // 3. Agregar mensaje del usuario al contexto
+      // 3. Obtener historial previo (antes de agregar el mensaje actual)
+      const conversationHistory = conversationManager.getConversationHistory(userId);
+
+      // 4. Agregar mensaje del usuario al contexto
       const userMessage: ConversationMessage = {
         role: 'user',
         content: messageContent,
@@ -37,9 +40,6 @@ class MessageOrchestrator {
         metadata: this.extractMessageMetadata(message),
       };
       conversationManager.addMessage(userId, userMessage);
-
-      // 4. Obtener historial de conversación
-      const conversationHistory = conversationManager.getConversationHistory(userId);
       logger.debug('Historial de conversación obtenido', {
         userId,
         historyLength: conversationHistory.length,
@@ -69,10 +69,6 @@ class MessageOrchestrator {
         role: 'agent',
         content: agentResponse.response,
         timestamp: Date.now(),
-        metadata: {
-          confidence: agentResponse.confidence,
-          nextActions: agentResponse.nextActions,
-        },
       };
       conversationManager.addMessage(userId, agentMessage);
 
