@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git
+.gitignore
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary
+.env
+.env.local
+temp/
+tmp/
+
+# Build outputs (no los necesitamos en imagen)
+dist/
+build/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Documentation
+README.md
+GETTING_STARTED.md
+QUICK_START.md
+LICENSE
+
+# Otros
+.dockerignore
+Dockerfile
+docker-compose.yml
+*.md
