@@ -63,9 +63,6 @@ export const config = {
     basePath: process.env.KNOWLEDGE_BASE_PATH || path.resolve(__dirname, '../../../scrapper/md'),
   },
 
-  // Supabase
-  supabase: {
-    url: process.env.SUPABASE_URL || '',
   // Supabase (persistencia solo desde webhook Telegram/WhatsApp)
   supabase: {
     url: (process.env.SUPABASE_URL || '').replace(/\/rest\/v1\/?$/, ''),
