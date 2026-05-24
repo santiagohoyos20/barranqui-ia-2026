@@ -1,18 +1,15 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
+import cors from 'cors';
 import logger from './utils/logger';
 import { config, validateConfig } from './config/env';
 import webhookRoutes from './routes/webhook.routes';
 import { errorHandler } from './middleware/validation.middleware';
 import conversationManager from './services/conversation/manager.service';
-import knowledgeService from './services/knowledge/knowledge.service';
 
 const app: Express = express();
 
 // Validar configuración
 validateConfig();
-
-// Inicializar base de conocimiento
-knowledgeService.init(config.knowledge.basePath);
 
 // Middleware
 app.use(cors());
@@ -34,7 +31,7 @@ app.get('/', (_req: Request, res: Response) => {
   });
 });
 
-// Ruta de prueba del agente
+// Endpoint web del agente — mantiene historial por userId igual que el bot de Telegram
 app.post('/agent/chat', async (req: Request, res: Response) => {
   try {
     const { message, userId = 'test-user', name } = req.body;
@@ -42,15 +39,31 @@ app.post('/agent/chat', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'Campo "message" requerido' });
       return;
     }
+
+    conversationManager.getOrCreateSession(userId, undefined, name);
+    conversationManager.addMessage(userId, {
+      role: 'user',
+      content: message,
+      timestamp: Date.now(),
+    });
+
+    const fullHistory = conversationManager.getConversationHistory(userId);
+    const conversationHistory = fullHistory.slice(0, -1);
+
     const agentClient = (await import('./services/agent/client.service')).default;
-    const knowledgeContext = knowledgeService.getContext(message);
     const response = await agentClient.sendMessage({
       userId,
       currentMessage: message,
-      conversationHistory: [],
-      knowledgeContext,
+      conversationHistory,
       metadata: { name },
     });
+
+    conversationManager.addMessage(userId, {
+      role: 'agent',
+      content: response.response,
+      timestamp: Date.now(),
+    });
+
     res.json(response);
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });

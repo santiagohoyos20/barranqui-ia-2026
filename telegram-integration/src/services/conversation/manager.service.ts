@@ -19,7 +19,7 @@ class ConversationManager {
    */
   getOrCreateSession(
     userId: string,
-    chatId: number,
+    chatId?: number,
     username?: string
   ): UserSession {
     let session = this.conversationStorage.get(userId);
@@ -38,8 +38,7 @@ class ConversationManager {
       logger.info(`Nueva sesión creada para usuario ${userId}`);
     } else {
       session.lastMessageAt = Date.now();
-      // Actualiza datos volátiles por si el usuario cambió de chat o username
-      session.chatId = chatId;
+      if (chatId !== undefined) session.chatId = chatId;
       if (username) session.username = username;
     }
 
@@ -134,7 +133,7 @@ class ConversationManager {
     totalMessages: number;
     sessions: Array<{
       userId: string;
-      chatId: number;
+      chatId?: number;
       messageCount: number;
       lastActivity: string;
     }>;
@@ -142,7 +141,7 @@ class ConversationManager {
     let totalMessages = 0;
     const sessions: Array<{
       userId: string;
-      chatId: number;
+      chatId?: number;
       messageCount: number;
       lastActivity: string;
     }> = [];

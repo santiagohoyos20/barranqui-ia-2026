@@ -13,7 +13,7 @@ export interface ConversationMessage {
 
 export interface UserSession {
   userId: string;
-  chatId: number;
+  chatId?: number;
   username?: string;
   messages: ConversationMessage[];
   createdAt: number;
@@ -23,7 +23,7 @@ export interface UserSession {
 
 export interface ConversationContext {
   userId: string;
-  chatId: number;
+  chatId?: number;
   history: ConversationMessage[];
   currentMessageIndex: number;
 }

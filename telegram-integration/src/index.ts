@@ -9,7 +9,7 @@ const server = app.listen(PORT, async () => {
   logger.info(`🚀 Servidor iniciado en puerto ${PORT}`);
   logger.info(`📍 Ambiente: ${config.nodeEnv}`);
   logger.info(`📝 Nivel de log: ${config.logLevel}`);
-  logger.info(`🤖 Agente IA URL: ${config.agent.apiUrl}`);
+  logger.info(`🤖 Modelo IA: ${config.agent.model}`);
 
   // Si el usuario configuró TELEGRAM_WEBHOOK_URL, registramos el webhook
   // automáticamente al arrancar el servidor.
