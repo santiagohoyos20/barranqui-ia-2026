@@ -125,6 +125,14 @@ class MessageOrchestrator {
         userId,
         messageId: message.message_id,
         hadEvents: Boolean(events),
+        eventsBreakdown: events
+          ? {
+              userData: !!events.userData,
+              productInterest: !!events.productInterest,
+              appointment: !!events.appointment,
+              closeConversation: !!events.closeConversation,
+            }
+          : null,
       });
 
       if (conversationManager.isFarewell(messageContent)) {

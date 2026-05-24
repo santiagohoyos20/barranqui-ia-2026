@@ -231,7 +231,10 @@ class PersistenceService {
 
     const product = this.findProductByName(productName);
     if (!product) {
-      logger.warn('Producto no encontrado en catálogo', { productName });
+      logger.warn('Producto no encontrado en catálogo', {
+        productName,
+        availableProducts: this.productsCache.map((p) => p.name),
+      });
       return;
     }
 
@@ -249,7 +252,14 @@ class PersistenceService {
 
     if (error) {
       logger.error('Error upsert product_interest', { error: error.message });
+      return;
     }
+
+    logger.info('product_interest guardado', {
+      productId: product.id,
+      productName: product.name,
+      outcome,
+    });
   }
 
   private pickAdvisor(): AdvisorRow | undefined {

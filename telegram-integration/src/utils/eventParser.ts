@@ -69,6 +69,11 @@ function sanitizeAgentEvents(raw: unknown): AgentEvents | null {
       );
       if (abandonment) cleaned.abandonment_step = abandonment;
       out.productInterest = cleaned;
+    } else {
+      logger.warn('productInterest descartado: productName inválido o vacío', {
+        productName: pi.productName,
+        productInterest: pi,
+      });
     }
   }
 
@@ -86,6 +91,12 @@ function sanitizeAgentEvents(raw: unknown): AgentEvents | null {
       if (status) cleaned.status = status;
       if (typeof ap.summary === 'string') cleaned.summary = ap.summary;
       out.appointment = cleaned;
+    } else {
+      logger.warn('appointment descartado: productName o scheduled_at inválidos', {
+        productName: ap.productName,
+        scheduled_at: ap.scheduled_at,
+        appointment: ap,
+      });
     }
   }
 
@@ -110,6 +121,10 @@ export function parseAgentEvents(rawResponse: string): {
 
   try {
     const raw = JSON.parse(jsonText);
+    logger.debug('Bloque <events> recibido del LLM', {
+      rawKeys: raw && typeof raw === 'object' ? Object.keys(raw) : null,
+      raw,
+    });
     const events = sanitizeAgentEvents(raw);
     return { cleanText, events };
   } catch (err) {
@@ -137,13 +152,21 @@ Formato exacto:
 
 Reglas:
 - Solo incluye campos que cambiaron en este turno.
-- productName debe coincidir con un producto Serfinanza (ej: "Crédito de vivienda", "CDT", "Crédito libre inversión").
-- Cuando el usuario pregunte por un producto, emite productInterest con outcome "interested".
-- Tras validar ingresos/edad, emite outcome "qualified" o "rejected" con rejection_reason.
-- Si el usuario deja de responder tras pedir un dato, emite outcome "abandoned" con abandonment_step.
-- Si agenda cita, emite appointment con scheduled_at ISO y status "confirmed" cuando el usuario confirme.
-- Si la conversación termina, emite closeConversation.
-- En consultas informativas sin producto específico, omite productInterest.
+
+Reglas para productInterest (CRÍTICAS):
+- Si el usuario MENCIONA, PREGUNTA por, o expresa INTERÉS en CUALQUIER producto (crédito de vivienda, CDT, tarjeta, seguro, cuenta de ahorros, crédito libre inversión, etc.), DEBES incluir productInterest en el bloque events del MISMO turno.
+- productName: USA EXCLUSIVAMENTE uno de los nombres EXACTOS de la lista "Productos disponibles" que aparece arriba en el contexto. No traduzcas, no inventes sinónimos, no abrevies.
+- Si el usuario describe el producto con otro nombre o de forma informal (ej: "préstamo para casa"), MAPÉALO al nombre exacto de la lista (ej: "Crédito de vivienda").
+- Si la consulta NO corresponde a ningún producto específico de la lista (saludos, dudas generales, agradecimientos), OMITE productInterest entero.
+- Outcome inicial al expresar interés: "interested". Tras validar ingresos/edad y aprobar: "qualified". Si no califica: "rejected" con rejection_reason. Si abandona el flujo: "abandoned" con abandonment_step.
+
+Reglas para appointment:
+- Solo emite appointment cuando el usuario haya confirmado fecha/hora.
+- scheduled_at en formato ISO 8601 con timezone (ej: "2026-05-25T10:00:00-05:00").
+- status "confirmed" cuando el usuario confirme la cita.
+
+Otras reglas:
+- Si la conversación termina, emite closeConversation ("completed" si se cumplió el objetivo, "abandoned" si el usuario se fue).
 - NUNCA incluyas el bloque <events> en el texto visible para el usuario; va al final, separado.
 `.trim();
 }
