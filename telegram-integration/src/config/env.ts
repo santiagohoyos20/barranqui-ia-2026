@@ -53,14 +53,20 @@ export const config = {
 
   // Conversation
   conversation: {
-    idleTimeout: 24 * 60 * 60 * 1000, // 24 horas
-    cleanupInterval: 60 * 60 * 1000, // Cada hora
-    maxMessages: 100, // Máximo de mensajes por sesión
+    idleTimeout: 5 * 60 * 1000,  // 5 minutos sin actividad
+    cleanupInterval: 60 * 1000,   // Revisar cada minuto
+    maxMessages: 100,
   },
 
   // Knowledge base — __dirname es src/config/, subimos 3 niveles hasta project/
   knowledge: {
     basePath: process.env.KNOWLEDGE_BASE_PATH || path.resolve(__dirname, '../../../scrapper/md'),
+  },
+
+  // Supabase
+  supabase: {
+    url: process.env.SUPABASE_URL || '',
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   },
 };
 

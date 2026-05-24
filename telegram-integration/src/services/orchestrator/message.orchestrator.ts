@@ -3,14 +3,23 @@ import conversationManager from '../conversation/manager.service';
 import agentClient from '../agent/client.service';
 import telegramClient from '../telegram/client.service';
 import telegramWebhookService from '../telegram/webhook.service';
+import intelligenceExtractor from '../intelligence/extractor.service';
+import leadRepository from '../supabase/lead.repository';
 import { TelegramMessage } from '../../types/telegram.types';
 import { ConversationMessage } from '../../types/conversation.types';
 
 class MessageOrchestrator {
-  /**
-   * Procesa un mensaje recibido de Telegram
-   * Flujo: Telegram → Conversation Manager → Agent → Telegram
-   */
+  constructor() {
+    conversationManager.onSessionClose(async (session) => {
+      const conversationId = session.metadata?.supabaseConversationId as string | undefined;
+      if (conversationId) {
+        await leadRepository.closeConversation(conversationId);
+      } else {
+        console.log(`[Sesión] Sesión de usuario ${session.userId} cerrada sin conversación en Supabase`);
+      }
+    });
+  }
+
   async processMessage(message: TelegramMessage): Promise<void> {
     if (!message.from || !message.chat) {
       logger.warn('Mensaje sin from/chat, ignorado', {
@@ -107,6 +116,15 @@ class MessageOrchestrator {
         userId,
         messageId: message.message_id,
       });
+
+      // 9. Guardar en Supabase (no bloquea la respuesta al usuario)
+      void this.saveIntelligence(userId, username, messageContent, agentResponse.response);
+
+      // 10. Cerrar sesión si el usuario se despidió
+      if (conversationManager.isFarewell(messageContent)) {
+        console.log(`[Sesión] Usuario ${userId} se despidió — cerrando sesión`);
+        conversationManager.closeSession(userId);
+      }
     } catch (error) {
       logger.error('Error procesando mensaje', {
         userId,
@@ -115,6 +133,46 @@ class MessageOrchestrator {
       });
 
       await this.sendErrorMessage(chatId);
+    }
+  }
+
+  private async saveIntelligence(
+    userId: string,
+    username: string | undefined,
+    userMessage: string,
+    agentResponse: string
+  ): Promise<void> {
+    console.log(`[Supabase] Analizando conversación de usuario ${userId}...`);
+    try {
+      const intelligence = await intelligenceExtractor.extract(userMessage, agentResponse, userId);
+      if (!intelligence) {
+        console.log(`[Supabase] ❌ NO guardado — el extractor no pudo analizar el mensaje`);
+        return;
+      }
+
+      console.log(`[Supabase] Extracción: intención="${intelligence.intentType}" | productos=${intelligence.productInterests.join(', ') || 'ninguno'} | cita=${intelligence.appointmentRequest.detected}`);
+
+      const dbUserId = await leadRepository.upsertUser(userId, username, intelligence);
+      if (!dbUserId) return;
+
+      const conversationId = await leadRepository.getOrCreateConversation(dbUserId);
+      if (!conversationId) return;
+
+      // Guardar IDs en la sesión para usarlos al cerrar
+      conversationManager.updateMetadata(userId, {
+        supabaseUserId: dbUserId,
+        supabaseConversationId: conversationId,
+      });
+
+      await Promise.all([
+        leadRepository.saveMessages(conversationId, userMessage, agentResponse),
+        leadRepository.saveProductInterests(conversationId, intelligence),
+        leadRepository.saveAppointmentRequest(dbUserId, conversationId, intelligence),
+      ]);
+
+      console.log(`[Supabase] ✅ Pipeline completo para usuario ${userId}`);
+    } catch (error) {
+      console.log(`[Supabase] ❌ Error en pipeline:`, error);
     }
   }
 
