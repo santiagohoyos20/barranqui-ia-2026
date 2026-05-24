@@ -2,6 +2,7 @@ import logger from '../../utils/logger';
 import conversationManager from '../conversation/manager.service';
 import agentClient from '../agent/client.service';
 import whatsappClient from '../whatsapp/client.service';
+import knowledgeService from '../knowledge/knowledge.service';
 import { WhatsAppMessage } from '../../types/whatsapp.types';
 import { ConversationMessage } from '../../types/conversation.types';
 
@@ -45,13 +46,17 @@ class MessageOrchestrator {
         historyLength: conversationHistory.length,
       });
 
-      // 5. Enviar al agente IA
+      // 5. Obtener contexto de conocimiento relevante para el mensaje
+      const knowledgeContext = knowledgeService.getContext(messageContent);
+
+      // 6. Enviar al agente IA
       logger.info('Enviando mensaje al agente IA', { userId });
 
       const agentRequest = {
         userId,
         currentMessage: messageContent,
         conversationHistory,
+        knowledgeContext,
         metadata: {
           phone,
           type: message.type,
@@ -64,7 +69,7 @@ class MessageOrchestrator {
         confidence: agentResponse.confidence,
       });
 
-      // 6. Agregar respuesta del agente al contexto
+      // 7. Agregar respuesta del agente al contexto
       const agentMessage: ConversationMessage = {
         role: 'agent',
         content: agentResponse.response,
