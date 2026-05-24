@@ -62,7 +62,7 @@ function generarRespuesta(mensaje, _conversationHistory) {
   const mensajeLower = (mensaje || '').toLowerCase();
 
   if (mensajeLower.includes('hola') || mensajeLower.includes('hi') || mensajeLower.includes('/start')) {
-    return '¡Hola! Soy el asistente de Serfinanza. ¿Cómo puedo ayudarte hoy?';
+    return '¡Hola! Soy Sol, tu asesora virtual de Serfinanza. ¿Cómo puedo ayudarte hoy?';
   }
 
   if (mensajeLower.includes('saldo')) {
