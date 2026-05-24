@@ -6,9 +6,9 @@ interface ChatInputProps {
 }
 
 const SUGGESTIONS = [
-  '¿Cómo solicito una tarjeta de crédito?',
+  'Gasté 85 mil en mercado hoy',
   '¿Cuáles son los horarios de atención?',
-  '¿Qué canales de atención tienen?',
+  'Recibí mi salario de 3 millones',
 ]
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
@@ -47,7 +47,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       <form className="chat-input" onSubmit={handleSubmit}>
         <textarea
           className="chat-input__field"
-          placeholder="Escribe tu mensaje..."
+          placeholder="Escribe aquí, con tus palabras..."
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}

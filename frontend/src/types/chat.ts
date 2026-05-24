@@ -10,22 +10,6 @@ export interface ChatMessage {
   status?: 'sending' | 'sent' | 'error'
 }
 
-export interface ConversationEntry {
-  role: MessageRole
-  content: string
-  timestamp: number
-}
-
-export interface ChatRequest {
-  userId: string
-  currentMessage: string
-  conversationHistory: ConversationEntry[]
-  metadata: {
-    channel: 'web'
-    type: 'text'
-  }
-}
-
 export interface AgentResponse {
   response: string
   confidence?: number
