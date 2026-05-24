@@ -1,17 +1,6 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { ChatApiError, sendMessage } from '../services/api'
-import type { ChatMessage, ConversationEntry } from '../types/chat'
-
-const USER_ID_KEY = 'serfinanza_user_id'
-
-function getOrCreateUserId(): string {
-  const stored = localStorage.getItem(USER_ID_KEY)
-  if (stored) return stored
-
-  const id = `web_${crypto.randomUUID()}`
-  localStorage.setItem(USER_ID_KEY, id)
-  return id
-}
+import type { ChatMessage } from '../types/chat'
 
 function createId(): string {
   return crypto.randomUUID()
@@ -21,7 +10,7 @@ const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'agent',
   content:
-    '¡Hola! Soy el asistente virtual de Serfinanza. Puedo ayudarte con información sobre tarjetas, créditos, horarios, canales de atención y más. ¿En qué puedo ayudarte hoy?',
+    '¡Hola! Soy tu asistente de Serfinanza. Puedes escribirme en tus propias palabras: por ejemplo, "Gasté 50 mil en mercado" o "¿Cuáles son los horarios de atención?". Yo me encargo del resto.',
   timestamp: Date.now(),
   status: 'sent',
 }
@@ -30,15 +19,6 @@ export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const userIdRef = useRef(getOrCreateUserId())
-
-  const buildHistory = useCallback(
-    (currentMessages: ChatMessage[]): ConversationEntry[] =>
-      currentMessages
-        .filter((m) => m.id !== 'welcome' && m.status !== 'error')
-        .map(({ role, content, timestamp }) => ({ role, content, timestamp })),
-    [],
-  )
 
   const sendUserMessage = useCallback(
     async (text: string) => {
@@ -59,13 +39,22 @@ export function useChat() {
       setIsLoading(true)
 
       try {
-        const history = buildHistory([...messages, userMessage])
+        const conversationHistory = [...messages, userMessage]
+          .filter((message) => message.role === 'user' || message.role === 'agent')
+          .map((message) => ({
+            role: message.role,
+            content: message.content,
+            timestamp: message.timestamp,
+          }))
 
         const agentReply = await sendMessage({
-          userId: userIdRef.current,
+          userId: 'demo-user',
           currentMessage: trimmed,
-          conversationHistory: history.slice(0, -1),
-          metadata: { channel: 'web', type: 'text' },
+          conversationHistory,
+          metadata: {
+            channel: 'web',
+            type: 'text',
+          },
         })
 
         setMessages((prev) =>
@@ -101,7 +90,7 @@ export function useChat() {
         setIsLoading(false)
       }
     },
-    [buildHistory, isLoading, messages],
+    [isLoading],
   )
 
   const clearError = useCallback(() => setError(null), [])

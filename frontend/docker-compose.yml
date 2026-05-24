@@ -6,6 +6,10 @@ services:
       args:
         # URL accesible desde el navegador del usuario (no desde el contenedor)
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api/chat}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-https://svorevemywtrfqawmcnv.supabase.co/rest/v1}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_SUPABASE_SCHEMA: ${VITE_SUPABASE_SCHEMA:-public}
+        VITE_USE_MOCK_DATA: ${VITE_USE_MOCK_DATA:-false}
     ports:
       - "${FRONTEND_PORT:-8080}:80"
     restart: unless-stopped

@@ -17,57 +17,33 @@ If you are developing a production application, we recommend updating the config
 
 ```js
 export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+  # Frontend Comercial
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+  Este frontend muestra un dashboard comercial para Banco Serfinanza centrado en leads, interés por producto, citas agendadas, fricción del embudo y rendimiento del asistente.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+  ## Correr en local
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+  ```bash
+  cd frontend
+  npm install
+  npm run dev
+  ```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+  ## Build de producción
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+  ```bash
+  cd frontend
+  npm run build
+  npm run preview
+  ```
+
+  ## Variables de entorno
+
+  - `VITE_USE_MOCK_DATA`: deja el dashboard usando datos de ejemplo. Por defecto está activo.
+  - `VITE_SUPABASE_URL`: URL del REST de Supabase para leer tablas desde el navegador.
+  - `VITE_SUPABASE_ANON_KEY`: clave pública de Supabase para acceder al REST.
+  - `VITE_SUPABASE_SCHEMA`: normalmente `public`.
+  - `VITE_API_URL`: URL del servicio del chat.
+
+  Si el backend comercial todavía no existe, la interfaz seguirá funcionando con datos mock para que el diseño y la navegación se puedan revisar desde ya. El navegador no debe usar la cadena `postgresql://...`; para el front se necesita la URL REST y la clave pública `anon`.
+
