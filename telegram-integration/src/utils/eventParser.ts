@@ -1,26 +1,45 @@
 import { AgentEvents } from '../types/persistence.types';
 
 const EVENTS_BLOCK_REGEX = /<events>\s*([\s\S]*?)\s*<\/events>/i;
+const JSON_FENCE_REGEX = /```(?:json)?\s*([\s\S]*?)\s*```/i;
 
 export function parseAgentEvents(rawResponse: string): {
   cleanText: string;
   events: AgentEvents | null;
 } {
-  const match = rawResponse.match(EVENTS_BLOCK_REGEX);
+  let events: AgentEvents | null = null;
+  let cleanText = rawResponse.trim();
 
-  if (!match) {
-    return { cleanText: rawResponse.trim(), events: null };
+  const eventsMatch = rawResponse.match(EVENTS_BLOCK_REGEX);
+  if (eventsMatch) {
+    cleanText = rawResponse.replace(EVENTS_BLOCK_REGEX, '').trim();
+    events = tryParseEventsJson(eventsMatch[1]);
+  } else {
+    const fenceMatch = rawResponse.match(JSON_FENCE_REGEX);
+    if (fenceMatch) {
+      const parsed = tryParseEventsJson(fenceMatch[1]);
+      if (parsed && looksLikeAgentEvents(parsed)) {
+        events = parsed;
+        cleanText = rawResponse.replace(JSON_FENCE_REGEX, '').trim();
+      }
+    }
   }
 
-  const cleanText = rawResponse.replace(EVENTS_BLOCK_REGEX, '').trim();
-  const jsonText = match[1].trim();
+  return { cleanText, events };
+}
 
+function tryParseEventsJson(jsonText: string): AgentEvents | null {
   try {
-    const events = JSON.parse(jsonText) as AgentEvents;
-    return { cleanText, events };
+    return JSON.parse(jsonText.trim()) as AgentEvents;
   } catch {
-    return { cleanText, events: null };
+    return null;
   }
+}
+
+function looksLikeAgentEvents(value: AgentEvents): boolean {
+  return Boolean(
+    value.userData || value.productInterest || value.appointment || value.closeConversation
+  );
 }
 
 export function buildEventsPromptSection(): string {
