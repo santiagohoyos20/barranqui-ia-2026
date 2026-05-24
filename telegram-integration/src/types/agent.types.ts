@@ -9,6 +9,8 @@ export interface AgentRequest {
     chatId?: number;
     username?: string;
     name?: string;
+    channel?: 'telegram' | 'whatsapp' | 'web';
+    persistEvents?: boolean;
     customData?: Record<string, any>;
   };
 }

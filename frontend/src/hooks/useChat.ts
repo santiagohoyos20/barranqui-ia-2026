@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import { pickRandomChatSuggestions } from '../constants/chatSuggestions'
 import { ChatApiError, sendMessage } from '../services/api'
 import type { ChatMessage } from '../types/chat'
 
@@ -10,7 +11,7 @@ const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'agent',
   content:
-    '¡Hola! Soy tu asistente de Serfinanza. Puedes escribirme en tus propias palabras: por ejemplo, "Gasté 50 mil en mercado" o "¿Cuáles son los horarios de atención?". Yo me encargo del resto.',
+    '¡Hola! Soy tu asistente de Serfinanza. Puedes escribirme en tus propias palabras. Yo me encargo del resto.',
   timestamp: Date.now(),
   status: 'sent',
 }
@@ -19,6 +20,8 @@ export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showSuggestions, setShowSuggestions] = useState(true)
+  const suggestions = useMemo(() => pickRandomChatSuggestions(3), [])
 
   const sendUserMessage = useCallback(
     async (text: string) => {
@@ -26,6 +29,7 @@ export function useChat() {
       if (!trimmed || isLoading) return
 
       setError(null)
+      setShowSuggestions(false)
 
       const userMessage: ChatMessage = {
         id: createId(),
@@ -40,6 +44,7 @@ export function useChat() {
 
       try {
         const conversationHistory = [...messages, userMessage]
+          .filter((message) => message.id !== 'welcome')
           .filter((message) => message.role === 'user' || message.role === 'agent')
           .map((message) => ({
             role: message.role,
@@ -90,7 +95,7 @@ export function useChat() {
         setIsLoading(false)
       }
     },
-    [isLoading],
+    [isLoading, messages],
   )
 
   const clearError = useCallback(() => setError(null), [])
@@ -99,6 +104,8 @@ export function useChat() {
     messages,
     isLoading,
     error,
+    suggestions,
+    showSuggestions,
     sendUserMessage,
     clearError,
   }

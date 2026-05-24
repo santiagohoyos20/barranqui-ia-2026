@@ -16,6 +16,7 @@ export async function sendMessage(payload: ChatRequest): Promise<AgentResponse> 
   const body = {
     message: payload.currentMessage,
     userId: payload.userId,
+    name: payload.metadata?.channel === 'web' ? 'Asesor interno' : undefined,
   }
   const response = await fetch(API_URL, {
     method: 'POST',

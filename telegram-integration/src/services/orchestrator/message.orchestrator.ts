@@ -5,8 +5,12 @@ import telegramClient from '../telegram/client.service';
 import telegramWebhookService from '../telegram/webhook.service';
 import intelligenceExtractor from '../intelligence/extractor.service';
 import leadRepository from '../supabase/lead.repository';
+import knowledgeLoader from '../knowledge/loader.service';
+import persistenceService from '../supabase/persistence.service';
+import { parseAgentEvents } from '../../utils/eventParser';
 import { TelegramMessage } from '../../types/telegram.types';
 import { ConversationMessage } from '../../types/conversation.types';
+import { DbSessionContext } from '../../types/persistence.types';
 
 class MessageOrchestrator {
   constructor() {
@@ -20,6 +24,9 @@ class MessageOrchestrator {
     });
   }
 
+  /**
+   * Procesa un mensaje recibido de Telegram (canal externo → persiste en Supabase)
+   */
   async processMessage(message: TelegramMessage): Promise<void> {
     if (!message.from || !message.chat) {
       logger.warn('Mensaje sin from/chat, ignorado', {
@@ -31,6 +38,8 @@ class MessageOrchestrator {
     const userId = String(message.from.id);
     const chatId = message.chat.id;
     const username = message.from.username;
+    const channel = 'telegram' as const;
+    const phone = `tg:${userId}`;
 
     try {
       logger.info('Iniciando procesamiento de mensaje', {
@@ -40,28 +49,25 @@ class MessageOrchestrator {
         type: telegramWebhookService.detectMessageType(message),
       });
 
-      // 1. Obtener o crear sesión del usuario
       const session = conversationManager.getOrCreateSession(
         userId,
         chatId,
         username
       );
-      logger.debug('Sesión obtenida/creada', {
-        userId,
-        messagesCount: session.messages.length,
-      });
 
-      // 2. Mostrar indicador "escribiendo..." al usuario
+      let dbCtx = this.getDbContext(session.metadata);
+      if (!dbCtx && persistenceService.isEnabled()) {
+        const displayName = this.buildDisplayName(message);
+        dbCtx = await persistenceService.startChannelSession(phone, channel, displayName);
+        if (dbCtx) {
+          session.metadata = { ...session.metadata, ...dbCtx };
+        }
+      }
+
       void telegramClient.sendChatAction(chatId, 'typing');
 
-      // 3. Extraer contenido del mensaje
       const messageContent = telegramWebhookService.getMessageContent(message);
-      logger.debug('Contenido extraído', {
-        userId,
-        contentLength: messageContent.length,
-      });
 
-      // 4. Agregar mensaje del usuario al contexto
       const userMessage: ConversationMessage = {
         role: 'user',
         content: messageContent,
@@ -70,51 +76,58 @@ class MessageOrchestrator {
       };
       conversationManager.addMessage(userId, userMessage);
 
-      // 5. Obtener historial de conversación
-      const conversationHistory = conversationManager.getConversationHistory(userId);
-      logger.debug('Historial de conversación obtenido', {
-        userId,
-        historyLength: conversationHistory.length,
-      });
+      if (dbCtx) {
+        await persistenceService.insertMessage(dbCtx.dbConversationId, 'user', messageContent);
+      }
 
-      // 6. Enviar al agente IA
-      logger.info('Enviando mensaje al agente IA', { userId });
+      const conversationHistory = conversationManager.getConversationHistory(userId);
+
+      const knowledgeContext = knowledgeLoader.getContextForMessage(messageContent);
+      const productCatalog = knowledgeLoader.getProductCatalogHint(
+        persistenceService.getProductNames()
+      );
 
       const agentRequest = {
         userId,
         currentMessage: messageContent,
         conversationHistory,
+        knowledgeContext: [knowledgeContext, productCatalog].filter(Boolean).join('\n\n'),
         metadata: {
           chatId,
           username,
           name: this.buildDisplayName(message),
+          channel,
+          persistEvents: true,
         },
       };
 
       const agentResponse = await agentClient.sendMessage(agentRequest);
-      logger.info('Respuesta recibida del agente', {
-        userId,
-        confidence: agentResponse.confidence,
-      });
 
-      // 7. Agregar respuesta del agente al contexto
+      const { cleanText, events } = parseAgentEvents(agentResponse.response);
+
       const agentMessage: ConversationMessage = {
         role: 'agent',
-        content: agentResponse.response,
+        content: cleanText,
         timestamp: Date.now(),
         metadata: {
-          ...((agentResponse.metadata || {}) as Record<string, any>),
+          ...((agentResponse.metadata || {}) as Record<string, unknown>),
         },
       };
       conversationManager.addMessage(userId, agentMessage);
 
-      // 8. Enviar respuesta a Telegram
-      logger.info('Enviando respuesta a Telegram', { userId, chatId });
-      await telegramClient.sendTextMessage(chatId, agentResponse.response);
+      if (dbCtx) {
+        await persistenceService.insertMessage(dbCtx.dbConversationId, 'assistant', cleanText);
+        if (events) {
+          await persistenceService.processEvents(dbCtx, events);
+        }
+      }
+
+      await telegramClient.sendTextMessage(chatId, cleanText);
 
       logger.info('Mensaje procesado exitosamente', {
         userId,
         messageId: message.message_id,
+        hadEvents: Boolean(events),
       });
 
       // 9. Guardar en Supabase (no bloquea la respuesta al usuario)
@@ -177,8 +190,58 @@ class MessageOrchestrator {
   }
 
   /**
-   * Construye el nombre del usuario para incluirlo en metadata
+   * Procesa mensaje del chat web interno (asesores) — solo memoria, sin DB
    */
+  async processWebChat(
+    userId: string,
+    messageContent: string,
+    displayName?: string
+  ): Promise<string> {
+    conversationManager.getOrCreateSession(userId, undefined, displayName);
+
+    conversationManager.addMessage(userId, {
+      role: 'user',
+      content: messageContent,
+      timestamp: Date.now(),
+    });
+
+    const fullHistory = conversationManager.getConversationHistory(userId);
+    const conversationHistory = fullHistory.slice(0, -1);
+
+    const knowledgeContext = knowledgeLoader.getContextForMessage(messageContent);
+
+    const agentResponse = await agentClient.sendMessage({
+      userId,
+      currentMessage: messageContent,
+      conversationHistory,
+      knowledgeContext,
+      metadata: {
+        name: displayName,
+        channel: 'web',
+        persistEvents: false,
+      },
+    });
+
+    const { cleanText } = parseAgentEvents(agentResponse.response);
+
+    conversationManager.addMessage(userId, {
+      role: 'agent',
+      content: cleanText,
+      timestamp: Date.now(),
+    });
+
+    return cleanText;
+  }
+
+  private getDbContext(metadata?: Record<string, unknown>): DbSessionContext | null {
+    if (!metadata?.dbUserId || !metadata?.dbConversationId) return null;
+    return {
+      dbUserId: metadata.dbUserId as string,
+      dbConversationId: metadata.dbConversationId as string,
+      channel: (metadata.channel as string) ?? 'telegram',
+    };
+  }
+
   private buildDisplayName(message: TelegramMessage): string | undefined {
     if (!message.from) return undefined;
     const first = message.from.first_name || '';
@@ -187,9 +250,6 @@ class MessageOrchestrator {
     return full || message.from.username;
   }
 
-  /**
-   * Extrae metadatos del mensaje
-   */
   private extractMessageMetadata(
     message: TelegramMessage
   ): ConversationMessage['metadata'] {
@@ -228,9 +288,6 @@ class MessageOrchestrator {
     return metadata;
   }
 
-  /**
-   * Envía mensaje de error al usuario
-   */
   private async sendErrorMessage(chatId: number): Promise<void> {
     try {
       const errorMessage =
@@ -244,12 +301,10 @@ class MessageOrchestrator {
     }
   }
 
-  /**
-   * Obtiene estadísticas del orquestador
-   */
   getStats() {
     return {
       conversationManager: conversationManager.getStats(),
+      persistenceEnabled: persistenceService.isEnabled(),
     };
   }
 }

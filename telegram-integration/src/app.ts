@@ -31,40 +31,23 @@ app.get('/', (_req: Request, res: Response) => {
   });
 });
 
-// Endpoint web del agente — mantiene historial por userId igual que el bot de Telegram
+// Endpoint web del agente — asesores internos, sin persistencia en DB
 app.post('/agent/chat', async (req: Request, res: Response) => {
   try {
-    const { message, userId = 'test-user', name } = req.body;
+    const { message, userId = 'web-advisor', name } = req.body;
     if (!message) {
       res.status(400).json({ error: 'Campo "message" requerido' });
       return;
     }
 
-    conversationManager.getOrCreateSession(userId, undefined, name);
-    conversationManager.addMessage(userId, {
-      role: 'user',
-      content: message,
-      timestamp: Date.now(),
+    const messageOrchestrator = (await import('./services/orchestrator/message.orchestrator')).default;
+    const cleanText = await messageOrchestrator.processWebChat(userId, message, name);
+
+    res.json({
+      response: cleanText,
+      confidence: 1,
+      metadata: { channel: 'web' },
     });
-
-    const fullHistory = conversationManager.getConversationHistory(userId);
-    const conversationHistory = fullHistory.slice(0, -1);
-
-    const agentClient = (await import('./services/agent/client.service')).default;
-    const response = await agentClient.sendMessage({
-      userId,
-      currentMessage: message,
-      conversationHistory,
-      metadata: { name },
-    });
-
-    conversationManager.addMessage(userId, {
-      role: 'agent',
-      content: response.response,
-      timestamp: Date.now(),
-    });
-
-    res.json(response);
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }

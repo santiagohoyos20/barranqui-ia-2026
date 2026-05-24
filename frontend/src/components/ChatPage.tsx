@@ -4,7 +4,8 @@ import { ChatInput } from './ChatInput'
 import { MessageList } from './MessageList'
 
 export function ChatPage() {
-  const { messages, isLoading, error, sendUserMessage, clearError } = useChat()
+  const { messages, isLoading, error, suggestions, showSuggestions, sendUserMessage, clearError } =
+    useChat()
 
   return (
     <div className="page page--chat">
@@ -28,7 +29,12 @@ export function ChatPage() {
             </button>
           </div>
         )}
-        <ChatInput onSend={sendUserMessage} disabled={isLoading} />
+        <ChatInput
+          onSend={sendUserMessage}
+          disabled={isLoading}
+          suggestions={suggestions}
+          showSuggestions={showSuggestions}
+        />
       </div>
     </div>
   )

@@ -23,8 +23,13 @@ services:
 
       # --- Servidor ---
       - PORT=3000
-      - NODE_ENV=${NODE_ENV:-development}
+      - NODE_ENV=${NODE_ENV:-production}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+
+      # --- Supabase (persistencia) ---
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - KNOWLEDGE_BASE_PATH=${KNOWLEDGE_BASE_PATH:-}
     volumes:
       - ./logs:/app/logs
     networks:

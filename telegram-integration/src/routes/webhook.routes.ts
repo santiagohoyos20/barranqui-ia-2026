@@ -74,11 +74,14 @@ router.get('/health', async (_req: Request, res: Response) => {
     const telegramOk = await telegramClient.healthCheck();
     const agentOk = await agentClient.healthCheck();
     const stats = conversationManager.getStats();
+    const persistenceService = (await import('../services/supabase/persistence.service')).default;
 
     res.status(200).json({
       status: 'ok',
       telegram: telegramOk ? 'connected' : 'disconnected',
       agent: agentOk ? 'connected' : 'disconnected',
+      persistence: persistenceService.isEnabled() ? 'enabled' : 'disabled',
+      persistenceReady: persistenceService.isReady(),
       conversationStats: stats,
       timestamp: new Date().toISOString(),
     });
@@ -87,8 +90,9 @@ router.get('/health', async (_req: Request, res: Response) => {
       error: error instanceof Error ? error.message : error,
     });
 
-    res.status(500).json({
-      status: 'error',
+    // 200 para que el healthcheck de Docker/Railway no mate el contenedor
+    res.status(200).json({
+      status: 'degraded',
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString(),
     });

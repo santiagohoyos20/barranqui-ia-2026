@@ -49,8 +49,10 @@ export interface AssistantMetric {
 }
 
 export interface AdvisorMetric {
+  id: string
   name: string
   appointments: number
+  pendingAppointments: number
   conversionRate: number
   avgDaysToAppointment: number
   noShowRate: number

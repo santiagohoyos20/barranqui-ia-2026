@@ -3,6 +3,7 @@ import logger from '../../utils/logger';
 import { AgentRequest, AgentResponse } from '../../types/agent.types';
 import { ConversationMessage } from '../../types/conversation.types';
 import { config } from '../../config/env';
+import { buildEventsPromptSection } from '../../utils/eventParser';
 
 class AgentClient {
   private client: Anthropic;
@@ -130,6 +131,10 @@ class AgentClient {
 
     if (request.metadata?.name) {
       prompt += `\n\nEstás hablando con ${request.metadata.name}.`;
+    }
+
+    if (request.metadata?.persistEvents) {
+      prompt += `\n\n${buildEventsPromptSection()}`;
     }
 
     return prompt;

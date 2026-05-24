@@ -8,7 +8,7 @@ import { formatDate, formatNumber, formatPercent } from '../../utils/format'
 
 export function DashboardPage() {
   const [period, setPeriod] = useState<ChartPeriod>('monthly')
-  const { data, loading, error, reload } = useCommercialDashboard(period)
+  const { data, loading, refreshing, error, reload } = useCommercialDashboard(period)
 
   if (loading && !data) {
     return (
@@ -47,6 +47,15 @@ export function DashboardPage() {
         </div>
         <div className="hero-meta">
           <PeriodSelector value={period} onChange={setPeriod} />
+          <button
+            type="button"
+            onClick={reload}
+            className="btn-primary"
+            disabled={refreshing}
+            aria-busy={refreshing}
+          >
+            {refreshing ? 'Actualizando…' : 'Actualizar'}
+          </button>
           <div className="hero-meta__card">
             <span className="hero-meta__label">Última actualización</span>
             <strong className="hero-meta__value">{formatDate(data.updatedAt)}</strong>
@@ -179,61 +188,6 @@ export function DashboardPage() {
                 <strong>{step.label}</strong>
                 <span>{formatPercent(step.dropRate)} abandona aquí</span>
                 <p>{formatNumber(step.count)} casos por punto de abandono</p>
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
-
-      <section className="dashboard-grid dashboard-grid--secondary">
-        <article className="panel" aria-label="Rendimiento del asistente">
-          <div className="panel__header">
-            <div>
-              <h2 className="panel__title">Rendimiento del asistente</h2>
-              <p className="panel__subtitle">Cómo responde la IA, cuánto resuelve y cuándo escala.</p>
-            </div>
-          </div>
-          <div className="info-grid">
-            {data.assistant.map((item) => (
-              <div key={item.label} className="info-card">
-                <strong>{item.value}</strong>
-                <span>{item.label}</span>
-                <p>{item.description}</p>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel" aria-label="Gestión de asesores y voz">
-          <div className="panel__header">
-            <div>
-              <h2 className="panel__title">Asesores y voz</h2>
-              <p className="panel__subtitle">Seguimiento comercial y el impacto del canal de voz.</p>
-            </div>
-          </div>
-
-          <div className="subpanel">
-            <h3 className="subpanel__title">Citas agendadas por asesor</h3>
-            {data.advisors.map((advisor) => (
-              <div key={advisor.name} className="advisor-row">
-                <div>
-                  <strong>{advisor.name}</strong>
-                  <p>{formatPercent(advisor.conversionRate)} de conversión · {advisor.avgDaysToAppointment} días</p>
-                </div>
-                <div className="advisor-row__value">{formatNumber(advisor.appointments)}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="subpanel subpanel--voice">
-            <h3 className="subpanel__title">KPIs de voz</h3>
-            {data.voice.map((metric) => (
-              <div key={metric.label} className="voice-row">
-                <strong>{metric.value}</strong>
-                <div>
-                  <p>{metric.label}</p>
-                  <span>{metric.description}</span>
-                </div>
               </div>
             ))}
           </div>
