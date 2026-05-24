@@ -10,7 +10,13 @@ async function startServer(): Promise<void> {
   logger.info('[BOOT] Iniciando servidor Serfinanza Telegram...');
   logger.info('[BOOT] Ambiente:', { nodeEnv: config.nodeEnv, logLevel: config.logLevel, model: config.agent.model });
 
-  await persistenceService.initialize();
+  try {
+    await persistenceService.initialize();
+  } catch (error) {
+    logger.error('[BOOT] Supabase no pudo inicializarse — el bot seguirá sin persistencia', {
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 
   const server = app.listen(PORT, async () => {
     logger.info(`[BOOT] Servidor escuchando en puerto ${PORT}`);
