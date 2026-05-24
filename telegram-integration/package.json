@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Integration between Telegram Bot API and Serfinanza AI Agent",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc",
