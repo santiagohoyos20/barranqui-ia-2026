@@ -20,6 +20,10 @@ class PersistenceService {
     return Boolean(config.supabase.url && config.supabase.serviceRoleKey);
   }
 
+  isReady(): boolean {
+    return this.initialized && this.client !== null;
+  }
+
   async initialize(): Promise<void> {
     if (!this.isEnabled()) {
       logger.warn(
