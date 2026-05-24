@@ -101,8 +101,22 @@ CREATE TABLE IF NOT EXISTS product_interests (
                                  'income', 'id_number', 'email', 'name', 'other'
                                )),
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (conversation_id, product_id)
+  CONSTRAINT product_interests_conversation_product_unique UNIQUE (conversation_id, product_id)
 );
+
+-- Idempotente: agrega el UNIQUE en bases ya existentes que no lo tienen.
+-- Si hay filas duplicadas por (conversation_id, product_id), este bloque fallará;
+-- ejecutar primero el cleanup documentado en plan/notas.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'product_interests_conversation_product_unique'
+  ) THEN
+    ALTER TABLE product_interests
+      ADD CONSTRAINT product_interests_conversation_product_unique UNIQUE (conversation_id, product_id);
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_pi_conversation_id ON product_interests(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_pi_product_id      ON product_interests(product_id);
