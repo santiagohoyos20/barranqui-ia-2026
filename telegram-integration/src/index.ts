@@ -6,59 +6,55 @@ import persistenceService from './services/supabase/persistence.service';
 
 const PORT = config.port;
 
-async function startServer(): Promise<void> {
-  logger.info('[BOOT] Iniciando servidor Serfinanza Telegram...');
-  logger.info('[BOOT] Ambiente:', { nodeEnv: config.nodeEnv, logLevel: config.logLevel, model: config.agent.model });
+const server = app.listen(PORT, async () => {
+  logger.info(`🚀 Servidor iniciado en puerto ${PORT}`);
+  logger.info(`📍 Ambiente: ${config.nodeEnv}`);
+  logger.info(`📝 Nivel de log: ${config.logLevel}`);
+  logger.info(`🤖 Modelo IA: ${config.agent.model}`);
 
   await persistenceService.initialize();
 
-  const server = app.listen(PORT, async () => {
-    logger.info(`[BOOT] Servidor escuchando en puerto ${PORT}`);
-
-    if (config.telegram.webhookUrl && config.telegram.botToken) {
-      const webhookUrl = `${config.telegram.webhookUrl.replace(/\/$/, '')}${config.telegram.webhookPath}`;
-      try {
-        await telegramClient.setWebhook(webhookUrl, config.telegram.webhookSecretToken || undefined);
-        logger.info('[BOOT] Webhook de Telegram registrado', { webhookUrl });
-      } catch (error) {
-        logger.error('[BOOT] No se pudo registrar webhook de Telegram', {
-          error: error instanceof Error ? error.message : error,
-        });
-      }
-    } else {
-      logger.warn('[BOOT] TELEGRAM_WEBHOOK_URL no configurada');
+  if (config.telegram.webhookUrl && config.telegram.botToken) {
+    const webhookUrl = `${config.telegram.webhookUrl.replace(/\/$/, '')}${
+      config.telegram.webhookPath
+    }`;
+    try {
+      await telegramClient.setWebhook(
+        webhookUrl,
+        config.telegram.webhookSecretToken || undefined
+      );
+    } catch (error) {
+      logger.error('No se pudo registrar el webhook de Telegram', {
+        error: error instanceof Error ? error.message : error,
+      });
     }
+  } else {
+    logger.info(
+      'ℹ️  TELEGRAM_WEBHOOK_URL no configurada: el webhook debe registrarse manualmente con setWebhook'
+    );
+  }
 
-    logger.info('[BOOT] Sistema listo', {
-      persistenceEnabled: persistenceService.isEnabled(),
-      persistenceReady: persistenceService.isReady(),
-    });
-  });
+  logger.info('✅ Sistema listo para recibir mensajes de Telegram');
+});
 
-  server.on('error', (error: NodeJS.ErrnoException) => {
-    if (error.code === 'EADDRINUSE') {
-      logger.error(`[BOOT] Puerto ${PORT} ya está en uso — detén la instancia anterior`);
-    } else {
-      logger.error('[BOOT] Error del servidor', { error: error.message });
-    }
-    process.exit(1);
-  });
-}
-
-startServer().catch((error) => {
-  logger.error('[BOOT] Fallo al iniciar', { error: error instanceof Error ? error.message : error });
+server.on('error', (error: NodeJS.ErrnoException) => {
+  if (error.code === 'EADDRINUSE') {
+    logger.error(`El puerto ${PORT} ya está en uso`);
+  } else {
+    logger.error('Error del servidor', { error: error.message });
+  }
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason) => {
-  logger.error('[BOOT] Promesa rechazada sin manejo', {
+process.on('unhandledRejection', (reason, _promise) => {
+  logger.error('Promesa rechazada sin manejo', {
     reason: reason instanceof Error ? reason.message : reason,
   });
 });
 
 process.on('uncaughtException', (error) => {
-  logger.error('[BOOT] Excepción no capturada', { error: error.message });
+  logger.error('Excepción no capturada', { error: error.message });
   process.exit(1);
 });
 
-export default startServer;
+export default server;

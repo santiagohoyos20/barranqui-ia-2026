@@ -65,8 +65,8 @@ export const config = {
 
   // Supabase (persistencia solo desde webhook Telegram/WhatsApp)
   supabase: {
-    url: (process.env.SUPABASE_URL || '').replace(/\/rest\/v1\/?$/, '').replace(/^["']|["']$/g, ''),
-    serviceRoleKey: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').replace(/^["']|["']$/g, ''),
+    url: (process.env.SUPABASE_URL || '').replace(/\/rest\/v1\/?$/, ''),
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   },
 };
 
