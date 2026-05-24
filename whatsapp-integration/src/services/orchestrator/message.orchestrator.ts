@@ -2,6 +2,7 @@ import logger from '../../utils/logger';
 import conversationManager from '../conversation/manager.service';
 import agentClient from '../agent/client.service';
 import whatsappClient from '../whatsapp/client.service';
+import knowledgeService from '../knowledge/knowledge.service';
 import { WhatsAppMessage } from '../../types/whatsapp.types';
 import { ConversationMessage } from '../../types/conversation.types';
 
@@ -29,7 +30,10 @@ class MessageOrchestrator {
       const messageContent = this.extractMessageContent(message);
       logger.debug('Contenido extraído', { userId, contentLength: messageContent.length });
 
-      // 3. Agregar mensaje del usuario al contexto
+      // 3. Obtener historial previo (antes de agregar el mensaje actual)
+      const conversationHistory = conversationManager.getConversationHistory(userId);
+
+      // 4. Agregar mensaje del usuario al contexto
       const userMessage: ConversationMessage = {
         role: 'user',
         content: messageContent,
@@ -37,21 +41,22 @@ class MessageOrchestrator {
         metadata: this.extractMessageMetadata(message),
       };
       conversationManager.addMessage(userId, userMessage);
-
-      // 4. Obtener historial de conversación
-      const conversationHistory = conversationManager.getConversationHistory(userId);
       logger.debug('Historial de conversación obtenido', {
         userId,
         historyLength: conversationHistory.length,
       });
 
-      // 5. Enviar al agente IA
+      // 5. Obtener contexto de conocimiento relevante para el mensaje
+      const knowledgeContext = knowledgeService.getContext(messageContent);
+
+      // 6. Enviar al agente IA
       logger.info('Enviando mensaje al agente IA', { userId });
 
       const agentRequest = {
         userId,
         currentMessage: messageContent,
         conversationHistory,
+        knowledgeContext,
         metadata: {
           phone,
           type: message.type,
@@ -64,15 +69,11 @@ class MessageOrchestrator {
         confidence: agentResponse.confidence,
       });
 
-      // 6. Agregar respuesta del agente al contexto
+      // 7. Agregar respuesta del agente al contexto
       const agentMessage: ConversationMessage = {
         role: 'agent',
         content: agentResponse.response,
         timestamp: Date.now(),
-        metadata: {
-          confidence: agentResponse.confidence,
-          nextActions: agentResponse.nextActions,
-        },
       };
       conversationManager.addMessage(userId, agentMessage);
 

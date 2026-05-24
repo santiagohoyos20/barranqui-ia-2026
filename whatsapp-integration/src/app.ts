@@ -1,16 +1,22 @@
 import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
 import logger from './utils/logger';
 import { config, validateConfig } from './config/env';
 import webhookRoutes from './routes/webhook.routes';
 import { errorHandler } from './middleware/validation.middleware';
 import conversationManager from './services/conversation/manager.service';
+import knowledgeService from './services/knowledge/knowledge.service';
 
 const app: Express = express();
 
 // Validar configuración
 validateConfig();
 
+// Inicializar base de conocimiento
+knowledgeService.init(config.knowledge.basePath);
+
 // Middleware
+app.use(cors());
 app.use(express.json());
 
 // Logging de solicitudes
@@ -38,10 +44,12 @@ app.post('/agent/chat', async (req: Request, res: Response) => {
       return;
     }
     const agentClient = (await import('./services/agent/client.service')).default;
+    const knowledgeContext = knowledgeService.getContext(message);
     const response = await agentClient.sendMessage({
       userId,
       currentMessage: message,
       conversationHistory: [],
+      knowledgeContext,
       metadata: { name },
     });
     res.json(response);
