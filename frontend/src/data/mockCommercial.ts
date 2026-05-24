@@ -153,9 +153,9 @@ function buildAssistantMetrics(): AssistantMetric[] {
 
 function buildAdvisors(): AdvisorMetric[] {
   return [
-    { name: 'Ana', appointments: 52, conversionRate: 31, avgDaysToAppointment: 1.5, noShowRate: 10 },
-    { name: 'Carlos', appointments: 47, conversionRate: 27, avgDaysToAppointment: 1.9, noShowRate: 12 },
-    { name: 'Laura', appointments: 43, conversionRate: 25, avgDaysToAppointment: 2.1, noShowRate: 16 },
+    { id: 'advisor-ana', name: 'Ana', appointments: 52, pendingAppointments: 8, conversionRate: 31, avgDaysToAppointment: 1.5, noShowRate: 10 },
+    { id: 'advisor-carlos', name: 'Carlos', appointments: 47, pendingAppointments: 5, conversionRate: 27, avgDaysToAppointment: 1.9, noShowRate: 12 },
+    { id: 'advisor-laura', name: 'Laura', appointments: 43, pendingAppointments: 6, conversionRate: 25, avgDaysToAppointment: 2.1, noShowRate: 16 },
   ]
 }
 
