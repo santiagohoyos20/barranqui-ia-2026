@@ -1,0 +1,38 @@
+{
+  "name": "telegram-agent-integration",
+  "version": "1.0.0",
+  "description": "Integration between Telegram Bot API and Serfinanza AI Agent",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "telegram",
+    "telegram-bot",
+    "agent",
+    "serfinanza",
+    "integration"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
+    "@types/cors": "^2.8.19",
+    "axios": "^1.6.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.0",
+    "uuid": "^9.0.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.0",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^9.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}
