@@ -25,11 +25,14 @@ class AgentClient {
         });
 
         const messages = this.buildMessages(request.conversationHistory, request.currentMessage);
+        const systemPrompt = this.buildSystemPrompt(request);
+
+        logger.info(`[Agent] System prompt: ${systemPrompt.length} chars | knowledge: ${request.knowledgeContext ? `${request.knowledgeContext.length} chars` : 'ninguno'}`);
 
         const stream = this.client.messages.stream({
           model: config.agent.model,
-          max_tokens: 1024,
-          system: this.buildSystemPrompt(request),
+          max_tokens: 4000,
+          system: systemPrompt,
           messages,
         });
 
@@ -118,6 +121,12 @@ class AgentClient {
 
   private buildSystemPrompt(request: AgentRequest): string {
     let prompt = config.agent.systemPrompt;
+
+    if (request.knowledgeContext) {
+      prompt += `\n\n${request.knowledgeContext}\n\n` +
+        'Usa la información de productos anterior para responder. ' +
+        'Si la respuesta no está en esa información, indícalo claramente y sugiere contactar al banco.';
+    }
 
     if (request.metadata?.name) {
       prompt += `\n\nEstás hablando con ${request.metadata.name}.`;

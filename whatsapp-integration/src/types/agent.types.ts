@@ -4,6 +4,7 @@ export interface AgentRequest {
   userId: string;
   currentMessage: string;
   conversationHistory: ConversationMessage[];
+  knowledgeContext?: string;
   metadata?: {
     phone?: string;
     name?: string;
