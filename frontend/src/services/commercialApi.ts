@@ -418,7 +418,10 @@ function buildCommercialDashboardFromSupabase(
   appointments: AppointmentRow[],
   advisors: AdvisorRow[],
 ): CommercialDashboardData {
-  const uniqueUsers = distinctCount(conversations.map((conversation) => conversation.user_id))
+  const clientConversations = conversations.filter(
+    (c) => c.channel === 'telegram' || c.channel === 'whatsapp',
+  )
+  const uniqueUsers = distinctCount(clientConversations.map((conversation) => conversation.user_id))
   const interestedUsers = distinctCount(
     productInterests.map((interest) => {
       const conversation = conversations.find((entry) => entry.id === interest.conversation_id)
@@ -426,18 +429,40 @@ function buildCommercialDashboardFromSupabase(
     }),
   )
 
-  const qualifiedUsers = distinctCount(
+  const confirmedAppointments = appointments.filter((appointment) => appointment.status === 'confirmed')
+
+  const qualifiedUserIds = new Set(
     productInterests
       .filter((interest) => interest.outcome === 'qualified')
       .map((interest) => {
         const conversation = conversations.find((entry) => entry.id === interest.conversation_id)
         return conversation?.user_id ?? ''
-      }),
+      })
+      .filter(Boolean),
   )
 
-  const confirmedAppointments = appointments.filter((appointment) => appointment.status === 'confirmed')
+  const confirmedAppointmentKeys = new Set(
+    confirmedAppointments.map((a) => `${a.user_id}:${a.product_id}`),
+  )
+
+  const prequalifiedUsers = [...qualifiedUserIds].filter((userId) => {
+    const userQualifiedProducts = productInterests
+      .filter((interest) => {
+        if (interest.outcome !== 'qualified') return false
+        const conversation = conversations.find((entry) => entry.id === interest.conversation_id)
+        return conversation?.user_id === userId
+      })
+      .map((interest) => interest.product_id)
+
+    return userQualifiedProducts.some(
+      (productId) => !confirmedAppointmentKeys.has(`${userId}:${productId}`),
+    )
+  }).length
+
+  const qualifiedUsers = prequalifiedUsers
+
   const appointmentUsers = distinctCount(confirmedAppointments.map((appointment) => appointment.user_id))
-  const conversationsInitiated = conversations.length
+  const conversationsInitiated = clientConversations.length
 
   const productMetrics = buildProductMetrics(products, productInterests, appointments)
   const rejectedProducts = buildRejectedProducts(products, productInterests)

@@ -74,11 +74,13 @@ router.get('/health', async (_req: Request, res: Response) => {
     const telegramOk = await telegramClient.healthCheck();
     const agentOk = await agentClient.healthCheck();
     const stats = conversationManager.getStats();
+    const persistenceService = (await import('../services/supabase/persistence.service')).default;
 
     res.status(200).json({
       status: 'ok',
       telegram: telegramOk ? 'connected' : 'disconnected',
       agent: agentOk ? 'connected' : 'disconnected',
+      persistence: persistenceService.isEnabled() ? 'enabled' : 'disabled',
       conversationStats: stats,
       timestamp: new Date().toISOString(),
     });

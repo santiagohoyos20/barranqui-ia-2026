@@ -48,7 +48,7 @@ export const config = {
       '- NUNCA le digas simplemente que vaya a una sucursal o a bancoserfinanza.com.\n' +
       '- En cambio, invítalo a agendar una cita con un asesor especialista. Por ejemplo: ' +
       '"¿Te gustaría agendar una cita con uno de nuestros asesores para revisar tu caso en detalle?".\n' +
-      '- Si el usuario acepta, indícale que puede hacerlo llamando a nuestra línea de atención.',
+      '- Si el usuario acepta, recopila los datos necesarios (nombre, cédula, ingresos, correo) uno a uno y confirma la cita con fecha y hora.',
   },
 
   // Conversation
@@ -61,6 +61,12 @@ export const config = {
   // Knowledge base — __dirname es src/config/, subimos 3 niveles hasta project/
   knowledge: {
     basePath: process.env.KNOWLEDGE_BASE_PATH || path.resolve(__dirname, '../../../scrapper/md'),
+  },
+
+  // Supabase (persistencia solo desde webhook Telegram/WhatsApp)
+  supabase: {
+    url: (process.env.SUPABASE_URL || '').replace(/\/rest\/v1\/?$/, ''),
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   },
 };
 

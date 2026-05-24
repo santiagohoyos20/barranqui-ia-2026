@@ -2,6 +2,7 @@ import app from './app';
 import logger from './utils/logger';
 import { config } from './config/env';
 import telegramClient from './services/telegram/client.service';
+import persistenceService from './services/supabase/persistence.service';
 
 const PORT = config.port;
 
@@ -11,8 +12,8 @@ const server = app.listen(PORT, async () => {
   logger.info(`📝 Nivel de log: ${config.logLevel}`);
   logger.info(`🤖 Modelo IA: ${config.agent.model}`);
 
-  // Si el usuario configuró TELEGRAM_WEBHOOK_URL, registramos el webhook
-  // automáticamente al arrancar el servidor.
+  await persistenceService.initialize();
+
   if (config.telegram.webhookUrl && config.telegram.botToken) {
     const webhookUrl = `${config.telegram.webhookUrl.replace(/\/$/, '')}${
       config.telegram.webhookPath

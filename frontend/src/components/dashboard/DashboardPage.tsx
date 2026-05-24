@@ -8,7 +8,7 @@ import { formatDate, formatNumber, formatPercent } from '../../utils/format'
 
 export function DashboardPage() {
   const [period, setPeriod] = useState<ChartPeriod>('monthly')
-  const { data, loading, error, reload } = useCommercialDashboard(period)
+  const { data, loading, refreshing, error, reload } = useCommercialDashboard(period)
 
   if (loading && !data) {
     return (
@@ -47,6 +47,15 @@ export function DashboardPage() {
         </div>
         <div className="hero-meta">
           <PeriodSelector value={period} onChange={setPeriod} />
+          <button
+            type="button"
+            onClick={reload}
+            className="btn-primary"
+            disabled={refreshing}
+            aria-busy={refreshing}
+          >
+            {refreshing ? 'Actualizando…' : 'Actualizar'}
+          </button>
           <div className="hero-meta__card">
             <span className="hero-meta__label">Última actualización</span>
             <strong className="hero-meta__value">{formatDate(data.updatedAt)}</strong>

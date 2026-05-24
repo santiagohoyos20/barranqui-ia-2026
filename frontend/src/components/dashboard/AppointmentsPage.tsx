@@ -3,7 +3,7 @@ import { useAppointments } from '../../hooks/useAppointments'
 import { formatDate } from '../../utils/format'
 
 export function AppointmentsPage() {
-  const { data, loading, error, reload } = useAppointments()
+  const { data, loading, refreshing, error, reload } = useAppointments()
 
   if (loading && !data) {
     return (
@@ -40,6 +40,15 @@ export function AppointmentsPage() {
           </p>
         </div>
         <div className="hero-meta">
+          <button
+            type="button"
+            onClick={reload}
+            className="btn-primary"
+            disabled={refreshing}
+            aria-busy={refreshing}
+          >
+            {refreshing ? 'Actualizando…' : 'Actualizar'}
+          </button>
           <div className="hero-meta__card">
             <span className="hero-meta__label">Última actualización</span>
             <strong className="hero-meta__value">{formatDate(data.updatedAt)}</strong>

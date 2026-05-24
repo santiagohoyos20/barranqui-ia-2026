@@ -18,7 +18,12 @@ export interface UserSession {
   messages: ConversationMessage[];
   createdAt: number;
   lastMessageAt: number;
-  metadata?: Record<string, any>;
+  metadata?: {
+    dbUserId?: string;
+    dbConversationId?: string;
+    channel?: string;
+    [key: string]: unknown;
+  };
 }
 
 export interface ConversationContext {
