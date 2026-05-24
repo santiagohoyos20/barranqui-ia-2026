@@ -14,6 +14,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/citas',
+    label: 'Citas',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18" />
+      </svg>
+    ),
+  },
+  {
     to: '/chat',
     label: 'Asistente',
     icon: (
@@ -28,19 +38,8 @@ export function Sidebar() {
   return (
     <aside className="sidebar" aria-label="Menú principal">
       <div className="sidebar__brand">
-        <div className="sidebar__logo" aria-hidden="true">B</div>
-        <div>
-          <p className="sidebar__brand-name">Banco Serfinanza</p>
-          <p className="sidebar__brand-tag">Dashboard comercial</p>
-        </div>
-      </div>
-
-      <div className="sidebar__profile">
-        <div className="sidebar__avatar" aria-hidden="true">GC</div>
-        <div>
-          <p className="sidebar__user-name">Gerencia comercial</p>
-          <p className="sidebar__user-phone">Conversión de leads y citas</p>
-        </div>
+        <p className="sidebar__brand-name">Banco Serfinanza</p>
+        <p className="sidebar__brand-tag">Dashboard comercial</p>
       </div>
 
       <nav className="sidebar__nav">

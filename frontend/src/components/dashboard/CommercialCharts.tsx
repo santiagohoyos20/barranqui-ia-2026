@@ -6,9 +6,6 @@ import {
   CartesianGrid,
   Cell,
   Legend,
-  PolarAngleAxis,
-  RadialBar,
-  RadialBarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -61,14 +58,6 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
   const productChartData = [...data.products].sort((a, b) => b.consultations - a.consultations).slice(0, 6)
   const rejectedProductData = [...data.rejectedProducts].sort((a, b) => b.count - a.count).slice(0, 5)
   const abandonmentData = [...data.abandonment].sort((a, b) => b.count - a.count)
-
-  const advisorPerformance = data.advisors.map((advisor) => ({
-    name: advisor.name,
-    citas: advisor.appointments,
-    conversión: advisor.conversionRate,
-    noShow: advisor.noShowRate,
-  }))
-  const maxAdvisorAppointments = Math.max(0, ...advisorPerformance.map((item) => item.citas))
 
   return (
     <section className="dashboard-charts" aria-label="Gráficas comerciales">
@@ -150,9 +139,19 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
 
           <div className="chart-card__body">
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={productChartData} margin={{ top: 12, right: 10, left: 0, bottom: 18 }}>
+              <BarChart data={productChartData} margin={{ top: 12, right: 10, left: 0, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
-                <XAxis dataKey="product" tick={{ fill: '#94a3b8', fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={62} />
+                <XAxis
+                  dataKey="product"
+                  tick={{ fill: '#94a3b8', fontSize: 10 }}
+                  interval={0}
+                  angle={-35}
+                  textAnchor="end"
+                  height={72}
+                  tickFormatter={(value: string) =>
+                    value.length > 18 ? `${value.slice(0, 16)}…` : value
+                  }
+                />
                 <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip content={<TooltipCard />} />
                 <Legend />
@@ -173,7 +172,7 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
               {productShare.map((item, index) => (
                 <div key={item.name} className="conversion-rank__item">
                   <span className="conversion-rank__index">{index + 1}</span>
-                  <div>
+                  <div className="conversion-rank__content">
                     <strong>{item.name}</strong>
                     <p>{formatPercent(item.value)} de conversión</p>
                   </div>
@@ -221,34 +220,7 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
         </article>
       </div>
 
-      <div className="dashboard-charts__split">
-        <article className="panel chart-card chart-enter chart-enter--delay-3">
-          <div className="panel__header">
-            <div>
-              <h2 className="panel__title">Asesores en foco</h2>
-              <p className="panel__subtitle">Cantidad de citas agendadas por asesor.</p>
-            </div>
-          </div>
-
-          <div className="chart-card__body">
-            <ResponsiveContainer width="100%" height={290}>
-              <RadialBarChart
-                innerRadius="18%"
-                outerRadius="88%"
-                data={advisorPerformance}
-                startAngle={180}
-                endAngle={0}
-              >
-                <PolarAngleAxis type="number" domain={[0, maxAdvisorAppointments + 5]} tick={false} />
-                <RadialBar dataKey="citas" cornerRadius={12} fill={PRODUCT_COLORS[0]} isAnimationActive />
-                <Tooltip content={<TooltipCard />} />
-                <Legend />
-              </RadialBarChart>
-            </ResponsiveContainer>
-          </div>
-        </article>
-
-        <article className="panel chart-card chart-enter chart-enter--delay-4">
+      <article className="panel chart-card chart-card--wide chart-enter chart-enter--delay-3">
           <div className="panel__header">
             <div>
               <h2 className="panel__title">Punto de abandono</h2>
@@ -284,7 +256,6 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
             </div>
           </div>
         </article>
-      </div>
     </section>
   )
 }

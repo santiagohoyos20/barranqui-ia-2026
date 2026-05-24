@@ -3,15 +3,16 @@ import { useState, type FormEvent, type KeyboardEvent } from 'react'
 interface ChatInputProps {
   onSend: (message: string) => void
   disabled: boolean
+  suggestions?: string[]
+  showSuggestions?: boolean
 }
 
-const SUGGESTIONS = [
-  'Gasté 85 mil en mercado hoy',
-  '¿Cuáles son los horarios de atención?',
-  'Recibí mi salario de 3 millones',
-]
-
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({
+  onSend,
+  disabled,
+  suggestions = [],
+  showSuggestions = false,
+}: ChatInputProps) {
   const [text, setText] = useState('')
 
   const handleSubmit = (e: FormEvent) => {
@@ -28,22 +29,28 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     }
   }
 
+  const handleSuggestionClick = (suggestion: string) => {
+    if (disabled) return
+    onSend(suggestion)
+  }
+
   return (
     <div className="chat-input-area">
-      <div className="chat-suggestions">
-        {SUGGESTIONS.map((suggestion) => (
-          <button
-            key={suggestion}
-            type="button"
-            className="chat-suggestion"
-            disabled={disabled}
-            onClick={() => onSend(suggestion)}
-          >
-            {suggestion}
-          </button>
-        ))}
-      </div>
-
+      {showSuggestions && suggestions.length > 0 ? (
+        <div className="chat-suggestions" role="group" aria-label="Sugerencias de preguntas">
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              className="chat-suggestion"
+              onClick={() => handleSuggestionClick(suggestion)}
+              disabled={disabled}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <form className="chat-input" onSubmit={handleSubmit}>
         <textarea
           className="chat-input__field"

@@ -279,39 +279,37 @@ function buildAssistantMetrics(conversations: ConversationRow[], messages: Messa
 }
 
 function buildAdvisorMetrics(appointments: AppointmentRow[], advisors: AdvisorRow[]): AdvisorMetric[] {
-  const advisorById = new Map(advisors.map((advisor) => [advisor.id, advisor]))
-  const grouped = new Map<string, AppointmentRow[]>()
+  const confirmedAppointments = appointments.filter((appointment) => appointment.status === 'confirmed')
+  const confirmedTotal = confirmedAppointments.length
 
-  appointments.forEach((appointment) => {
-    if (appointment.status !== 'confirmed') return
-    const list = grouped.get(appointment.advisor_id) ?? []
-    list.push(appointment)
-    grouped.set(appointment.advisor_id, list)
-  })
+  return advisors
+    .filter((advisor) => advisor.active)
+    .map((advisor) => {
+      const advisorAppointments = appointments.filter((appointment) => appointment.advisor_id === advisor.id)
+      const confirmed = advisorAppointments.filter((appointment) => appointment.status === 'confirmed')
+      const pending = advisorAppointments.filter((appointment) => appointment.status === 'pending_confirmation')
+      const noShows = advisorAppointments.filter((appointment) => appointment.status === 'rejected_by_client')
 
-  return [...grouped.entries()]
-    .map(([advisorId, rows]) => {
-      const totalAppointments = rows.length
-      const noShows = appointments.filter(
-        (appointment) => appointment.advisor_id === advisorId && appointment.status === 'rejected_by_client',
-      ).length
-
-      const avgDaysToAppointment = totalAppointments
-        ? rows.reduce((sum, appointment) => {
+      const avgDaysToAppointment = confirmed.length
+        ? confirmed.reduce((sum, appointment) => {
             const created = new Date(appointment.created_at).getTime()
             const scheduled = new Date(appointment.scheduled_at).getTime()
             return sum + Math.max(0, (scheduled - created) / 86400000)
-          }, 0) / totalAppointments
+          }, 0) / confirmed.length
         : 0
 
-      const advisor = advisorById.get(advisorId)
-
       return {
-        name: advisor?.name ?? 'Sin asignar',
-        appointments: totalAppointments,
-        conversionRate: totalAppointments ? Math.round(100 * totalAppointments / appointments.length) : 0,
+        id: advisor.id,
+        name: advisor.name,
+        appointments: confirmed.length,
+        pendingAppointments: pending.length,
+        conversionRate: confirmedTotal
+          ? Math.round((confirmed.length / confirmedTotal) * 100)
+          : 0,
         avgDaysToAppointment: Number(avgDaysToAppointment.toFixed(1)),
-        noShowRate: appointments.length ? Math.round((noShows / appointments.length) * 100) : 0,
+        noShowRate: advisorAppointments.length
+          ? Math.round((noShows.length / advisorAppointments.length) * 100)
+          : 0,
       }
     })
     .sort((a, b) => b.appointments - a.appointments)
