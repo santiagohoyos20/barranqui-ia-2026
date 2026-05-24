@@ -6,6 +6,7 @@ import type {
   CommercialDashboardData,
   FunnelStage,
   ProductMetric,
+  RejectedProduct,
   RejectionReason,
   TrendPoint,
   VoiceMetric,
@@ -114,6 +115,24 @@ function buildRejections(): RejectionReason[] {
   }))
 }
 
+function buildRejectedProducts(): RejectedProduct[] {
+  const items = [
+    ['Crédito de vivienda', 84],
+    ['Tarjeta de crédito', 61],
+    ['Crédito de libre inversión', 47],
+    ['CDT', 24],
+    ['Seguros', 19],
+  ] as const
+
+  const total = items.reduce((sum, [, count]) => sum + count, 0)
+
+  return items.map(([product, count]) => ({
+    product,
+    count,
+    share: Math.round((count / total) * 100),
+  }))
+}
+
 function buildAbandonment(): AbandonmentStep[] {
   return [
     { label: 'Ingresos', count: 30, dropRate: 30 },
@@ -205,6 +224,7 @@ export function getMockCommercialDashboard(period: ChartPeriod = 'monthly'): Com
     ],
     funnel: buildFunnel(),
     products: buildProducts(),
+    rejectedProducts: buildRejectedProducts(),
     rejections: buildRejections(),
     abandonment: buildAbandonment(),
     assistant: buildAssistantMetrics(),

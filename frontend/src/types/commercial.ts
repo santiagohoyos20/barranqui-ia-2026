@@ -30,6 +30,12 @@ export interface RejectionReason {
   share: number
 }
 
+export interface RejectedProduct {
+  product: string
+  count: number
+  share: number
+}
+
 export interface AbandonmentStep {
   label: string
   count: number
@@ -72,6 +78,7 @@ export interface CommercialDashboardData {
   kpis: CommercialKpi[]
   funnel: FunnelStage[]
   products: ProductMetric[]
+  rejectedProducts: RejectedProduct[]
   rejections: RejectionReason[]
   abandonment: AbandonmentStep[]
   assistant: AssistantMetric[]

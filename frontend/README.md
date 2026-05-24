@@ -40,8 +40,10 @@ export default defineConfig([
   ## Variables de entorno
 
   - `VITE_USE_MOCK_DATA`: deja el dashboard usando datos de ejemplo. Por defecto está activo.
-  - `VITE_COMMERCIAL_API_URL`: URL del backend real cuando esté listo.
+  - `VITE_SUPABASE_URL`: URL del REST de Supabase para leer tablas desde el navegador.
+  - `VITE_SUPABASE_ANON_KEY`: clave pública de Supabase para acceder al REST.
+  - `VITE_SUPABASE_SCHEMA`: normalmente `public`.
   - `VITE_API_URL`: URL del servicio del chat.
 
-  Si el backend comercial todavía no existe, la interfaz seguirá funcionando con datos mock para que el diseño y la navegación se puedan revisar desde ya.
+  Si el backend comercial todavía no existe, la interfaz seguirá funcionando con datos mock para que el diseño y la navegación se puedan revisar desde ya. El navegador no debe usar la cadena `postgresql://...`; para el front se necesita la URL REST y la clave pública `anon`.
 

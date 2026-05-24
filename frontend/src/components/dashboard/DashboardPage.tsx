@@ -242,8 +242,8 @@ export function DashboardPage() {
 
       <section className="dashboard-grid dashboard-grid--secondary" aria-label="Insights comerciales">
         <article className="panel">
-          <h2 className="panel__title">Preguntas más frecuentes</h2>
-          <p className="panel__subtitle">Top consultas que están trayendo leads al chat.</p>
+          <h2 className="panel__title">Productos más consultados</h2>
+          <p className="panel__subtitle">Ranking rápido de los productos con mayor interés.</p>
           <div className="pill-list">
             {data.topQuestions.map((question) => (
               <span key={question} className="pill">{question}</span>
@@ -252,8 +252,8 @@ export function DashboardPage() {
         </article>
 
         <article className="panel">
-          <h2 className="panel__title">Temas emergentes</h2>
-          <p className="panel__subtitle">Lo que la IA empieza a detectar con más frecuencia.</p>
+          <h2 className="panel__title">Motivos de rechazo</h2>
+          <p className="panel__subtitle">Señales más repetidas cuando el usuario no avanza.</p>
           <div className="insight-list">
             {data.emergingTopics.map((topic) => (
               <div key={topic} className="insight-list__item">

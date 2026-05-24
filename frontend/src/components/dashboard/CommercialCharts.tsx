@@ -6,8 +6,6 @@ import {
   CartesianGrid,
   Cell,
   Legend,
-  Pie,
-  PieChart,
   PolarAngleAxis,
   RadialBar,
   RadialBarChart,
@@ -60,17 +58,17 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
       value: product.conversionRate,
     }))
 
+  const productChartData = [...data.products].sort((a, b) => b.consultations - a.consultations).slice(0, 6)
+  const rejectedProductData = [...data.rejectedProducts].sort((a, b) => b.count - a.count).slice(0, 5)
+  const abandonmentData = [...data.abandonment].sort((a, b) => b.count - a.count)
+
   const advisorPerformance = data.advisors.map((advisor) => ({
     name: advisor.name,
     citas: advisor.appointments,
     conversión: advisor.conversionRate,
     noShow: advisor.noShowRate,
   }))
-
-  const voiceVsText = [
-    { name: 'Voz', value: 31 },
-    { name: 'Texto', value: 18 },
-  ]
+  const maxAdvisorAppointments = Math.max(0, ...advisorPerformance.map((item) => item.citas))
 
   return (
     <section className="dashboard-charts" aria-label="Gráficas comerciales">
@@ -145,22 +143,27 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
         <article className="panel chart-card chart-enter chart-enter--delay-1">
           <div className="panel__header">
             <div>
-              <h2 className="panel__title">Conversión por producto</h2>
-              <p className="panel__subtitle">Las oportunidades más fuertes y dónde está el mayor potencial.</p>
+              <h2 className="panel__title">Interés por producto</h2>
+              <p className="panel__subtitle">Consultas y citas comparadas por producto con enfoque comercial.</p>
             </div>
           </div>
 
           <div className="chart-card__body">
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={data.products} margin={{ top: 12, right: 10, left: 0, bottom: 18 }}>
+              <BarChart data={productChartData} margin={{ top: 12, right: 10, left: 0, bottom: 18 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
                 <XAxis dataKey="product" tick={{ fill: '#94a3b8', fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={62} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${value}%`} />
+                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip content={<TooltipCard />} />
                 <Legend />
-                <Bar dataKey="conversionRate" name="Conversión" radius={[10, 10, 0, 0]} isAnimationActive>
-                  {data.products.map((entry, index) => (
+                <Bar dataKey="consultations" name="Consultas" radius={[10, 10, 0, 0]} isAnimationActive>
+                  {productChartData.map((entry, index) => (
                     <Cell key={entry.product} fill={PRODUCT_COLORS[index % PRODUCT_COLORS.length]} />
+                  ))}
+                </Bar>
+                <Bar dataKey="appointments" name="Citas" radius={[10, 10, 0, 0]} isAnimationActive>
+                  {productChartData.map((entry, index) => (
+                    <Cell key={`${entry.product}-apt`} fill={REJECTION_COLORS[index % REJECTION_COLORS.length]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -183,31 +186,24 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
         <article className="panel chart-card chart-enter chart-enter--delay-2">
           <div className="panel__header">
             <div>
-              <h2 className="panel__title">Fricción principal</h2>
-              <p className="panel__subtitle">Rechazos más frecuentes con lectura visual rápida.</p>
+              <h2 className="panel__title">Productos con mayor rechazo</h2>
+              <p className="panel__subtitle">Dónde se caen más usuarios por producto.</p>
             </div>
           </div>
 
           <div className="chart-card__body chart-card__body--stacked">
-            <ResponsiveContainer width="100%" height={210}>
-              <PieChart>
-                <Pie
-                  data={data.rejections}
-                  dataKey="count"
-                  nameKey="label"
-                  innerRadius={58}
-                  outerRadius={90}
-                  paddingAngle={5}
-                  stroke="none"
-                  isAnimationActive
-                >
-                  {data.rejections.map((entry, index) => (
-                    <Cell key={entry.label} fill={REJECTION_COLORS[index % REJECTION_COLORS.length]} />
-                  ))}
-                </Pie>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={rejectedProductData} layout="vertical" margin={{ top: 8, right: 12, left: 12, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
+                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="product" tick={{ fill: '#94a3b8', fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
                 <Tooltip content={<TooltipCard />} />
-                <Legend layout="vertical" align="right" verticalAlign="middle" iconType="circle" />
-              </PieChart>
+                <Bar dataKey="count" name="Rechazos" radius={[0, 10, 10, 0]} isAnimationActive>
+                  {rejectedProductData.map((entry, index) => (
+                    <Cell key={entry.product} fill={REJECTION_COLORS[index % REJECTION_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
 
             <div className="chart-metrics-list">
@@ -230,7 +226,7 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
           <div className="panel__header">
             <div>
               <h2 className="panel__title">Asesores en foco</h2>
-              <p className="panel__subtitle">Citas, no-shows y conversión comparados de forma radial.</p>
+              <p className="panel__subtitle">Cantidad de citas agendadas por asesor.</p>
             </div>
           </div>
 
@@ -243,7 +239,7 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
                 startAngle={180}
                 endAngle={0}
               >
-                <PolarAngleAxis type="number" domain={[0, 60]} tick={false} />
+                <PolarAngleAxis type="number" domain={[0, maxAdvisorAppointments + 5]} tick={false} />
                 <RadialBar dataKey="citas" cornerRadius={12} fill={PRODUCT_COLORS[0]} isAnimationActive />
                 <Tooltip content={<TooltipCard />} />
                 <Legend />
@@ -255,40 +251,36 @@ export function CommercialCharts({ data }: CommercialChartsProps) {
         <article className="panel chart-card chart-enter chart-enter--delay-4">
           <div className="panel__header">
             <div>
-              <h2 className="panel__title">Voz vs texto</h2>
-              <p className="panel__subtitle">El canal de voz ya se ve más fuerte en conversión.</p>
+              <h2 className="panel__title">Punto de abandono</h2>
+              <p className="panel__subtitle">Dónde se va más gente en el flujo conversacional.</p>
             </div>
           </div>
 
           <div className="chart-card__body chart-card__body--stacked">
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={voiceVsText}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={42}
-                  outerRadius={78}
-                  paddingAngle={4}
-                  isAnimationActive
-                >
-                  {voiceVsText.map((entry, index) => (
-                    <Cell key={entry.name} fill={PRODUCT_COLORS[index]} />
-                  ))}
-                </Pie>
+            <ResponsiveContainer width="100%" height={210}>
+              <BarChart data={abandonmentData} layout="vertical" margin={{ top: 8, right: 12, left: 12, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
+                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
                 <Tooltip content={<TooltipCard />} />
-              </PieChart>
+                <Bar dataKey="count" name="Abandonos" radius={[0, 10, 10, 0]} isAnimationActive>
+                  {abandonmentData.map((entry, index) => (
+                    <Cell key={entry.label} fill={PRODUCT_COLORS[index % PRODUCT_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
 
-            <div className="voice-compare">
-              <div className="voice-compare__item">
-                <strong>Voz</strong>
-                <span>31% conversión</span>
-              </div>
-              <div className="voice-compare__item">
-                <strong>Texto</strong>
-                <span>18% conversión</span>
-              </div>
+            <div className="chart-metrics-list">
+              {data.abandonment.slice(0, 3).map((step, index) => (
+                <div key={step.label} className="chart-metrics-list__item">
+                  <span className="chart-metrics-list__dot" style={{ background: PRODUCT_COLORS[index] }} />
+                  <div>
+                    <strong>{step.label}</strong>
+                    <p>{formatNumber(step.count)} casos · {formatPercent(step.dropRate)}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </article>
