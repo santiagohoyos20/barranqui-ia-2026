@@ -39,7 +39,23 @@ export function useChat() {
       setIsLoading(true)
 
       try {
-        const agentReply = await sendMessage(trimmed)
+        const conversationHistory = [...messages, userMessage]
+          .filter((message) => message.role === 'user' || message.role === 'agent')
+          .map((message) => ({
+            role: message.role,
+            content: message.content,
+            timestamp: message.timestamp,
+          }))
+
+        const agentReply = await sendMessage({
+          userId: 'demo-user',
+          currentMessage: trimmed,
+          conversationHistory,
+          metadata: {
+            channel: 'web',
+            type: 'text',
+          },
+        })
 
         setMessages((prev) =>
           prev.map((m) =>

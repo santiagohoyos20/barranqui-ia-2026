@@ -6,6 +6,19 @@ export function formatCurrency(value: number): string {
   }).format(value)
 }
 
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat('es-CO', {
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+export function formatPercent(value: number, maximumFractionDigits = 0): string {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'percent',
+    maximumFractionDigits,
+  }).format(value / 100)
+}
+
 export function formatDate(dateStr: string): string {
   return new Intl.DateTimeFormat('es-CO', {
     day: 'numeric',

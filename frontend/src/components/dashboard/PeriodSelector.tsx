@@ -1,4 +1,4 @@
-import type { ChartPeriod } from '../../types/finance'
+import type { ChartPeriod } from '../../types/commercial'
 
 interface PeriodSelectorProps {
   value: ChartPeriod
