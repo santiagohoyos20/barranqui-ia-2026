@@ -38,7 +38,7 @@ class AgentClient {
 
         const message = await stream.finalMessage();
         const textBlock = message.content.find(b => b.type === 'text');
-        const responseText = textBlock ? (textBlock as Anthropic.TextBlock).text : '';
+        const responseText = textBlock ? (textBlock as Anthropic.TextBlock).text.replace(/\*\*/g, '') : '';
 
         logger.info('Respuesta recibida del agente', {
           userId: request.userId,
