@@ -14,117 +14,75 @@ class PersistenceService {
   private productsCache: ProductRow[] = [];
   private advisorsCache: AdvisorRow[] = [];
   private advisorRoundRobin = 0;
-  private initPromise: Promise<void> | null = null;
-  private ready = false;
+  private initialized = false;
 
   isEnabled(): boolean {
     return Boolean(config.supabase.url && config.supabase.serviceRoleKey);
   }
 
-  isReady(): boolean {
-    return this.ready && this.client !== null;
-  }
-
   async initialize(): Promise<void> {
-    if (this.initPromise) return this.initPromise;
-    this.initPromise = this.doInitialize();
-    return this.initPromise;
-  }
-
-  private async doInitialize(): Promise<void> {
     if (!this.isEnabled()) {
-      logger.warn('[DB] Persistencia deshabilitada — configure SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY', {
-        hasUrl: Boolean(config.supabase.url),
-        hasKey: Boolean(config.supabase.serviceRoleKey),
-      });
+      logger.warn(
+        'Supabase persistence deshabilitada: configure SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY'
+      );
       return;
     }
-
-    logger.info('[DB] Inicializando cliente Supabase', { url: config.supabase.url });
 
     this.client = createClient(config.supabase.url, config.supabase.serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
     await this.refreshCatalogs();
-    this.ready = true;
-    logger.info('[DB] Persistencia inicializada correctamente', {
+    this.initialized = true;
+    logger.info('Supabase persistence inicializada', {
       products: this.productsCache.length,
       advisors: this.advisorsCache.length,
     });
-  }
-
-  private async ensureReady(): Promise<boolean> {
-    await this.initialize();
-    if (!this.client) {
-      logger.error('[DB] Cliente Supabase no disponible tras initialize()');
-      return false;
-    }
-    return true;
   }
 
   getProductNames(): string[] {
     return this.productsCache.map((p) => p.name);
   }
 
+  /**
+   * Inicia sesión DB para un cliente del canal externo (Telegram/WhatsApp).
+   */
   async startChannelSession(
     phone: string,
     channel: string,
     displayName?: string
   ): Promise<DbSessionContext | null> {
-    if (!(await this.ensureReady())) return null;
+    if (!this.client) return null;
 
-    logger.info('[DB] Iniciando sesión de canal', { phone, channel, displayName });
+    const userId = await this.upsertUser(phone, displayName ? { name: displayName } : undefined);
+    const conversationId = await this.getOrCreateConversation(userId, channel);
 
-    try {
-      const userId = await this.upsertUser(phone, displayName ? { name: displayName } : undefined);
-      const conversationId = await this.getOrCreateConversation(userId, channel);
-
-      const ctx: DbSessionContext = { dbUserId: userId, dbConversationId: conversationId, channel };
-      logger.info('[DB] Sesión de canal creada', ctx);
-      return ctx;
-    } catch (error) {
-      logger.error('[DB] Error iniciando sesión de canal', {
-        phone,
-        channel,
-        error: error instanceof Error ? error.message : error,
-      });
-      return null;
-    }
+    return { dbUserId: userId, dbConversationId: conversationId, channel };
   }
 
   async insertMessage(
     conversationId: string,
     role: 'user' | 'assistant',
     content: string
-  ): Promise<boolean> {
-    if (!(await this.ensureReady())) return false;
+  ): Promise<void> {
+    if (!this.client) return;
 
-    const { data, error } = await this.client!.from('messages').insert({
+    const { error } = await this.client.from('messages').insert({
       conversation_id: conversationId,
       role,
       content,
-    }).select('id').single();
+    });
 
     if (error) {
-      logger.error('[DB] Error insertando mensaje', {
-        conversationId,
-        role,
-        error: error.message,
-        code: error.code,
-        details: error.details,
-      });
-      return false;
+      logger.error('Error insertando mensaje', { error: error.message });
     }
-
-    logger.info('[DB] Mensaje guardado', { conversationId, role, messageId: data?.id });
-    return true;
   }
 
-  async processEvents(ctx: DbSessionContext, events: AgentEvents): Promise<void> {
-    if (!(await this.ensureReady())) return;
-
-    logger.info('[DB] Procesando eventos', { ctx, events: JSON.stringify(events) });
+  async processEvents(
+    ctx: DbSessionContext,
+    events: AgentEvents
+  ): Promise<void> {
+    if (!this.client) return;
 
     if (events.userData && Object.keys(events.userData).length > 0) {
       await this.updateUser(ctx.dbUserId, events.userData);
@@ -164,24 +122,15 @@ class PersistenceService {
     ]);
 
     if (productsRes.error) {
-      logger.error('[DB] Error cargando productos', {
-        error: productsRes.error.message,
-        code: productsRes.error.code,
-        hint: productsRes.error.hint,
-      });
+      logger.error('Error cargando productos', { error: productsRes.error.message });
     } else {
       this.productsCache = (productsRes.data ?? []) as ProductRow[];
-      logger.info('[DB] Catálogo de productos cargado', { count: this.productsCache.length });
     }
 
     if (advisorsRes.error) {
-      logger.error('[DB] Error cargando asesores', {
-        error: advisorsRes.error.message,
-        code: advisorsRes.error.code,
-      });
+      logger.error('Error cargando asesores', { error: advisorsRes.error.message });
     } else {
       this.advisorsCache = (advisorsRes.data ?? []) as AdvisorRow[];
-      logger.info('[DB] Asesores cargados', { count: this.advisorsCache.length });
     }
   }
 
@@ -189,26 +138,16 @@ class PersistenceService {
     phone: string,
     partial?: { name?: string; status?: string }
   ): Promise<string> {
-    const { data: existing, error: selectError } = await this.client!
+    const { data: existing } = await this.client!
       .from('users')
       .select('id')
       .eq('phone', phone)
       .maybeSingle();
 
-    if (selectError) {
-      throw new Error(`Error buscando usuario: ${selectError.message}`);
-    }
-
     if (existing?.id) {
       if (partial && Object.keys(partial).length > 0) {
-        const { error: updateError } = await this.client!.from('users').update(partial).eq('id', existing.id);
-        if (updateError) {
-          logger.warn('[DB] Error actualizando usuario existente', { userId: existing.id, error: updateError.message });
-        } else {
-          logger.info('[DB] Usuario existente actualizado', { userId: existing.id, phone, partial });
-        }
+        await this.client!.from('users').update(partial).eq('id', existing.id);
       }
-      logger.info('[DB] Usuario existente reutilizado', { userId: existing.id, phone });
       return existing.id;
     }
 
@@ -219,10 +158,9 @@ class PersistenceService {
       .single();
 
     if (error || !data) {
-      throw new Error(`No se pudo crear usuario: ${error?.message} (${error?.code})`);
+      throw new Error(`No se pudo crear usuario: ${error?.message}`);
     }
 
-    logger.info('[DB] Usuario creado', { userId: data.id, phone });
     return data.id;
   }
 
@@ -238,14 +176,12 @@ class PersistenceService {
 
     const { error } = await this.client!.from('users').update(payload).eq('id', userId);
     if (error) {
-      logger.error('[DB] Error actualizando datos de usuario', { userId, payload, error: error.message });
-    } else {
-      logger.info('[DB] Datos de usuario actualizados', { userId, fields: Object.keys(payload) });
+      logger.error('Error actualizando usuario', { error: error.message });
     }
   }
 
   private async getOrCreateConversation(userId: string, channel: string): Promise<string> {
-    const { data: active, error: selectError } = await this.client!
+    const { data: active } = await this.client!
       .from('conversations')
       .select('id')
       .eq('user_id', userId)
@@ -255,14 +191,7 @@ class PersistenceService {
       .limit(1)
       .maybeSingle();
 
-    if (selectError) {
-      throw new Error(`Error buscando conversación: ${selectError.message}`);
-    }
-
-    if (active?.id) {
-      logger.info('[DB] Conversación activa reutilizada', { conversationId: active.id, userId, channel });
-      return active.id;
-    }
+    if (active?.id) return active.id;
 
     const { data, error } = await this.client!
       .from('conversations')
@@ -271,10 +200,9 @@ class PersistenceService {
       .single();
 
     if (error || !data) {
-      throw new Error(`No se pudo crear conversación: ${error?.message} (${error?.code})`);
+      throw new Error(`No se pudo crear conversación: ${error?.message}`);
     }
 
-    logger.info('[DB] Conversación creada', { conversationId: data.id, userId, channel });
     return data.id;
   }
 
@@ -299,10 +227,7 @@ class PersistenceService {
 
     const product = this.findProductByName(productName);
     if (!product) {
-      logger.warn('[DB] Producto no encontrado en catálogo', {
-        productName,
-        available: this.productsCache.map((p) => p.name),
-      });
+      logger.warn('Producto no encontrado en catálogo', { productName });
       return;
     }
 
@@ -314,25 +239,12 @@ class PersistenceService {
     if (rejectionReason) payload.rejection_reason = rejectionReason;
     if (abandonmentStep) payload.abandonment_step = abandonmentStep;
 
-    const { data, error } = await this.client!
+    const { error } = await this.client!
       .from('product_interests')
-      .upsert(payload, { onConflict: 'conversation_id,product_id' })
-      .select('id')
-      .single();
+      .upsert(payload, { onConflict: 'conversation_id,product_id' });
 
     if (error) {
-      logger.error('[DB] Error upsert product_interest', {
-        payload,
-        error: error.message,
-        code: error.code,
-        details: error.details,
-      });
-    } else {
-      logger.info('[DB] product_interest guardado', {
-        id: data?.id,
-        productName: product.name,
-        outcome,
-      });
+      logger.error('Error upsert product_interest', { error: error.message });
     }
   }
 
@@ -358,7 +270,7 @@ class PersistenceService {
     const advisor = this.pickAdvisor();
 
     if (!product || !advisor) {
-      logger.warn('[DB] No se pudo crear cita: producto o asesor no disponible', { productName });
+      logger.warn('No se pudo crear cita: producto o asesor no disponible', { productName });
       return;
     }
 
@@ -367,7 +279,7 @@ class PersistenceService {
       ? new Date(Date.now() + 86400000)
       : scheduled;
 
-    const { data, error } = await this.client!.from('appointments').insert({
+    const { error } = await this.client!.from('appointments').insert({
       user_id: ctx.dbUserId,
       product_id: product.id,
       advisor_id: advisor.id,
@@ -375,16 +287,18 @@ class PersistenceService {
       status,
       summary: summary ?? null,
       scheduled_at: validDate.toISOString(),
-    }).select('id').single();
+    });
 
     if (error) {
-      logger.error('[DB] Error creando cita', { error: error.message, code: error.code });
+      logger.error('Error creando cita', { error: error.message });
       return;
     }
 
-    logger.info('[DB] Cita creada', { appointmentId: data?.id, productName: product.name, advisor: advisor.name });
+    await this.client!
+      .from('users')
+      .update({ status: 'qualified' })
+      .eq('id', ctx.dbUserId);
 
-    await this.client!.from('users').update({ status: 'qualified' }).eq('id', ctx.dbUserId);
     await this.closeConversation(ctx.dbConversationId, 'completed');
   }
 
@@ -398,9 +312,7 @@ class PersistenceService {
       .eq('id', conversationId);
 
     if (error) {
-      logger.error('[DB] Error cerrando conversación', { conversationId, error: error.message });
-    } else {
-      logger.info('[DB] Conversación cerrada', { conversationId, status });
+      logger.error('Error cerrando conversación', { error: error.message });
     }
   }
 }
