@@ -266,44 +266,86 @@ class PersistenceService {
     status: string,
     summary?: string
   ): Promise<void> {
-    if (this.productsCache.length === 0 || this.advisorsCache.length === 0) {
-      await this.refreshCatalogs();
-    }
-
-    const product = this.findProductByName(productName);
-    const advisor = this.pickAdvisor();
-
-    if (!product || !advisor) {
-      logger.warn('No se pudo crear cita: producto o asesor no disponible', { productName });
-      return;
-    }
-
     const scheduled = new Date(scheduledAt);
     const validDate = Number.isNaN(scheduled.getTime())
       ? new Date(Date.now() + 86400000)
       : scheduled;
 
-    const { error } = await this.client!.from('appointments').insert({
-      user_id: ctx.dbUserId,
-      product_id: product.id,
-      advisor_id: advisor.id,
-      conversation_id: ctx.dbConversationId,
-      status,
-      summary: summary ?? null,
-      scheduled_at: validDate.toISOString(),
-    });
+    const { data: existing, error: selectError } = await this.client!
+      .from('appointments')
+      .select('id, advisor_id')
+      .eq('conversation_id', ctx.dbConversationId)
+      .maybeSingle();
 
-    if (error) {
-      logger.error('Error creando cita', { error: error.message });
+    if (selectError) {
+      logger.error('Error consultando citas existentes', { error: selectError.message });
       return;
     }
 
-    await this.client!
-      .from('users')
-      .update({ status: 'qualified' })
-      .eq('id', ctx.dbUserId);
+    if (existing?.id) {
+      const { error: updateError } = await this.client!
+        .from('appointments')
+        .update({
+          scheduled_at: validDate.toISOString(),
+          status,
+          summary: summary ?? null,
+        })
+        .eq('id', existing.id);
 
-    await this.closeConversation(ctx.dbConversationId, 'completed');
+      if (updateError) {
+        logger.error('Error actualizando cita', { error: updateError.message });
+        return;
+      }
+
+      logger.info('Cita actualizada (re-emisión del agente)', {
+        appointmentId: existing.id,
+        advisorId: existing.advisor_id,
+        status,
+      });
+    } else {
+      if (this.productsCache.length === 0 || this.advisorsCache.length === 0) {
+        await this.refreshCatalogs();
+      }
+
+      const product = this.findProductByName(productName);
+      const advisor = this.pickAdvisor();
+
+      if (!product || !advisor) {
+        logger.warn('No se pudo crear cita: producto o asesor no disponible', { productName });
+        return;
+      }
+
+      const { error: insertError } = await this.client!.from('appointments').insert({
+        user_id: ctx.dbUserId,
+        product_id: product.id,
+        advisor_id: advisor.id,
+        conversation_id: ctx.dbConversationId,
+        status,
+        summary: summary ?? null,
+        scheduled_at: validDate.toISOString(),
+      });
+
+      if (insertError) {
+        logger.error('Error creando cita', { error: insertError.message });
+        return;
+      }
+
+      logger.info('Cita creada', {
+        advisorId: advisor.id,
+        advisorName: advisor.name,
+        productName: product.name,
+        status,
+      });
+    }
+
+    if (status === 'confirmed') {
+      await this.client!
+        .from('users')
+        .update({ status: 'qualified' })
+        .eq('id', ctx.dbUserId);
+
+      await this.closeConversation(ctx.dbConversationId, 'completed');
+    }
   }
 
   private async closeConversation(

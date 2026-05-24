@@ -6,21 +6,14 @@ import {
 } from '../../types/conversation.types';
 import { config } from '../../config/env';
 
-type SessionCloseCallback = (session: UserSession) => void;
-
 const FAREWELL_PATTERN = /\b(chao|chau|adi[oó]s|bye|hasta luego|hasta pronto|nos vemos|hasta ma[nñ]ana)\b/i;
 
 class ConversationManager {
   private conversationStorage: Map<string, UserSession> = new Map();
   private cleanupTimer: NodeJS.Timeout | null = null;
-  private onCloseCallback: SessionCloseCallback | null = null;
 
   constructor() {
     this.startCleanupInterval();
-  }
-
-  onSessionClose(callback: SessionCloseCallback): void {
-    this.onCloseCallback = callback;
   }
 
   isFarewell(message: string): boolean {
@@ -28,11 +21,9 @@ class ConversationManager {
   }
 
   closeSession(userId: string): void {
-    const session = this.conversationStorage.get(userId);
-    if (!session) return;
+    if (!this.conversationStorage.has(userId)) return;
     this.conversationStorage.delete(userId);
-    console.log(`[Sesión] Cerrada para usuario ${userId}`);
-    this.onCloseCallback?.(session);
+    logger.info(`Sesión cerrada para usuario ${userId}`);
   }
 
   updateMetadata(userId: string, data: Record<string, unknown>): void {
@@ -211,8 +202,7 @@ class ConversationManager {
     for (const [userId, session] of this.conversationStorage.entries()) {
       if (now - session.lastMessageAt > config.conversation.idleTimeout) {
         this.conversationStorage.delete(userId);
-        console.log(`[Sesión] Cerrada por inactividad — usuario ${userId}`);
-        this.onCloseCallback?.(session);
+        logger.info(`Sesión cerrada por inactividad — usuario ${userId}`);
         cleaned++;
       }
     }

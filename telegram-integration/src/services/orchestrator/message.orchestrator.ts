@@ -3,8 +3,6 @@ import conversationManager from '../conversation/manager.service';
 import agentClient from '../agent/client.service';
 import telegramClient from '../telegram/client.service';
 import telegramWebhookService from '../telegram/webhook.service';
-import intelligenceExtractor from '../intelligence/extractor.service';
-import leadRepository from '../supabase/lead.repository';
 import knowledgeLoader from '../knowledge/loader.service';
 import persistenceService from '../supabase/persistence.service';
 import { parseAgentEvents } from '../../utils/eventParser';
@@ -13,17 +11,6 @@ import { ConversationMessage } from '../../types/conversation.types';
 import { DbSessionContext } from '../../types/persistence.types';
 
 class MessageOrchestrator {
-  constructor() {
-    conversationManager.onSessionClose(async (session) => {
-      const conversationId = session.metadata?.supabaseConversationId as string | undefined;
-      if (conversationId) {
-        await leadRepository.closeConversation(conversationId);
-      } else {
-        console.log(`[Sesión] Sesión de usuario ${session.userId} cerrada sin conversación en Supabase`);
-      }
-    });
-  }
-
   /**
    * Procesa un mensaje recibido de Telegram (canal externo → persiste en Supabase)
    */
@@ -119,6 +106,16 @@ class MessageOrchestrator {
         await persistenceService.insertMessage(dbCtx.dbConversationId, 'assistant', cleanText);
         if (events) {
           await persistenceService.processEvents(dbCtx, events);
+
+          const conversationClosed =
+            events.closeConversation === 'completed' ||
+            events.closeConversation === 'abandoned' ||
+            events.appointment?.status === 'confirmed';
+
+          if (conversationClosed && session.metadata) {
+            const { dbConversationId: _drop, ...rest } = session.metadata;
+            session.metadata = rest;
+          }
         }
       }
 
@@ -130,12 +127,8 @@ class MessageOrchestrator {
         hadEvents: Boolean(events),
       });
 
-      // 9. Guardar en Supabase (no bloquea la respuesta al usuario)
-      void this.saveIntelligence(userId, username, messageContent, agentResponse.response);
-
-      // 10. Cerrar sesión si el usuario se despidió
       if (conversationManager.isFarewell(messageContent)) {
-        console.log(`[Sesión] Usuario ${userId} se despidió — cerrando sesión`);
+        logger.info(`Usuario ${userId} se despidió — cerrando sesión en memoria`);
         conversationManager.closeSession(userId);
       }
     } catch (error) {
@@ -146,46 +139,6 @@ class MessageOrchestrator {
       });
 
       await this.sendErrorMessage(chatId);
-    }
-  }
-
-  private async saveIntelligence(
-    userId: string,
-    username: string | undefined,
-    userMessage: string,
-    agentResponse: string
-  ): Promise<void> {
-    console.log(`[Supabase] Analizando conversación de usuario ${userId}...`);
-    try {
-      const intelligence = await intelligenceExtractor.extract(userMessage, agentResponse, userId);
-      if (!intelligence) {
-        console.log(`[Supabase] ❌ NO guardado — el extractor no pudo analizar el mensaje`);
-        return;
-      }
-
-      console.log(`[Supabase] Extracción: intención="${intelligence.intentType}" | productos=${intelligence.productInterests.join(', ') || 'ninguno'} | cita=${intelligence.appointmentRequest.detected}`);
-
-      const dbUserId = await leadRepository.upsertUser(userId, username, intelligence);
-      if (!dbUserId) return;
-
-      const conversationId = await leadRepository.getOrCreateConversation(dbUserId);
-      if (!conversationId) return;
-
-      // Guardar IDs en la sesión para usarlos al cerrar
-      conversationManager.updateMetadata(userId, {
-        supabaseUserId: dbUserId,
-        supabaseConversationId: conversationId,
-      });
-
-      await Promise.all([
-        leadRepository.saveMessages(conversationId, userMessage, agentResponse),
-        leadRepository.saveProductInterests(conversationId, intelligence),
-        leadRepository.saveAppointmentRequest(dbUserId, conversationId, intelligence),
-      ]);
-
-      console.log(`[Supabase] ✅ Pipeline completo para usuario ${userId}`);
-    } catch (error) {
-      console.log(`[Supabase] ❌ Error en pipeline:`, error);
     }
   }
 

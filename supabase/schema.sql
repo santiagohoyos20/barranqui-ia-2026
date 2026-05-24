@@ -123,8 +123,23 @@ CREATE TABLE IF NOT EXISTS appointments (
                                )),
   summary          TEXT,
   scheduled_at     TIMESTAMPTZ NOT NULL,
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT appointments_conversation_id_unique UNIQUE (conversation_id)
 );
+
+-- Idempotente: agrega el UNIQUE en bases ya existentes que no lo tienen.
+-- Si hay filas duplicadas por conversation_id, este bloque fallará;
+-- ejecutar primero el cleanup documentado en plan/notas.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'appointments_conversation_id_unique'
+  ) THEN
+    ALTER TABLE appointments
+      ADD CONSTRAINT appointments_conversation_id_unique UNIQUE (conversation_id);
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_appointments_advisor_id   ON appointments(advisor_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_status       ON appointments(status);
