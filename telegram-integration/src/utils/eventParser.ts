@@ -1,6 +1,99 @@
-import { AgentEvents } from '../types/persistence.types';
+import logger from './logger';
+import {
+  AgentEvents,
+  AppointmentEvent,
+  ProductInterestEvent,
+  UserDataUpdate,
+} from '../types/persistence.types';
 
 const EVENTS_BLOCK_REGEX = /<events>\s*([\s\S]*?)\s*<\/events>/i;
+
+// Listas alineadas con los CHECK constraints en supabase/schema.sql.
+// Si la BD cambia, actualizar aquí también.
+const ALLOWED_USER_STATUS = ['prospect', 'qualified', 'rejected'] as const;
+const ALLOWED_PRODUCT_OUTCOME = ['interested', 'qualified', 'rejected', 'abandoned'] as const;
+const ALLOWED_REJECTION_REASON = ['low_income', 'age', 'incomplete_docs', 'other'] as const;
+const ALLOWED_ABANDONMENT_STEP = ['income', 'id_number', 'email', 'name', 'other'] as const;
+const ALLOWED_APPOINTMENT_STATUS = ['pending_confirmation', 'confirmed', 'rejected_by_client'] as const;
+const ALLOWED_CLOSE_CONVERSATION = ['completed', 'abandoned'] as const;
+
+function pickEnum<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  field: string
+): T | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'string' && (allowed as readonly string[]).includes(value)) {
+    return value as T;
+  }
+  logger.warn(`Valor inválido para ${field}, descartado`, {
+    value,
+    allowed,
+  });
+  return undefined;
+}
+
+function sanitizeAgentEvents(raw: unknown): AgentEvents | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const out: AgentEvents = {};
+
+  if (r.userData && typeof r.userData === 'object') {
+    const ud = r.userData as Record<string, unknown>;
+    const cleaned: UserDataUpdate = {};
+    if (typeof ud.name === 'string') cleaned.name = ud.name;
+    if (typeof ud.email === 'string') cleaned.email = ud.email;
+    if (typeof ud.id_number === 'string') cleaned.id_number = ud.id_number;
+    if (typeof ud.monthly_income === 'number') cleaned.monthly_income = ud.monthly_income;
+    const status = pickEnum(ud.status, ALLOWED_USER_STATUS, 'userData.status');
+    if (status) cleaned.status = status;
+    if (Object.keys(cleaned).length > 0) out.userData = cleaned;
+  }
+
+  if (r.productInterest && typeof r.productInterest === 'object') {
+    const pi = r.productInterest as Record<string, unknown>;
+    if (typeof pi.productName === 'string' && pi.productName.trim()) {
+      const cleaned: ProductInterestEvent = { productName: pi.productName };
+      const outcome = pickEnum(pi.outcome, ALLOWED_PRODUCT_OUTCOME, 'productInterest.outcome');
+      if (outcome) cleaned.outcome = outcome;
+      const rejection = pickEnum(
+        pi.rejection_reason,
+        ALLOWED_REJECTION_REASON,
+        'productInterest.rejection_reason'
+      );
+      if (rejection) cleaned.rejection_reason = rejection;
+      const abandonment = pickEnum(
+        pi.abandonment_step,
+        ALLOWED_ABANDONMENT_STEP,
+        'productInterest.abandonment_step'
+      );
+      if (abandonment) cleaned.abandonment_step = abandonment;
+      out.productInterest = cleaned;
+    }
+  }
+
+  if (r.appointment && typeof r.appointment === 'object') {
+    const ap = r.appointment as Record<string, unknown>;
+    if (
+      typeof ap.productName === 'string' && ap.productName.trim() &&
+      typeof ap.scheduled_at === 'string' && ap.scheduled_at.trim()
+    ) {
+      const cleaned: AppointmentEvent = {
+        productName: ap.productName,
+        scheduled_at: ap.scheduled_at,
+      };
+      const status = pickEnum(ap.status, ALLOWED_APPOINTMENT_STATUS, 'appointment.status');
+      if (status) cleaned.status = status;
+      if (typeof ap.summary === 'string') cleaned.summary = ap.summary;
+      out.appointment = cleaned;
+    }
+  }
+
+  const close = pickEnum(r.closeConversation, ALLOWED_CLOSE_CONVERSATION, 'closeConversation');
+  if (close) out.closeConversation = close;
+
+  return Object.keys(out).length > 0 ? out : null;
+}
 
 export function parseAgentEvents(rawResponse: string): {
   cleanText: string;
@@ -16,9 +109,13 @@ export function parseAgentEvents(rawResponse: string): {
   const jsonText = match[1].trim();
 
   try {
-    const events = JSON.parse(jsonText) as AgentEvents;
+    const raw = JSON.parse(jsonText);
+    const events = sanitizeAgentEvents(raw);
     return { cleanText, events };
-  } catch {
+  } catch (err) {
+    logger.warn('Bloque <events> con JSON inválido, ignorado', {
+      error: err instanceof Error ? err.message : err,
+    });
     return { cleanText, events: null };
   }
 }
